@@ -14,6 +14,7 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
 COPY public ./public
+COPY policies ./policies
 USER node
 EXPOSE 4000
 # Set ADMIN_API_KEY and PUBLIC_DASHBOARD=false for any real deployment.

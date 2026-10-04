@@ -29,6 +29,7 @@ import type { ServiceRegistry } from '../identity/registry.js';
 import type { EventBus } from '../observability/events.js';
 import type { MetricsCollector } from '../observability/metrics.js';
 import type { PolicyEngine } from '../policy/policyEngine.js';
+import type { UsageTracker } from '../policy/usage.js';
 import type { AnomalyEngine } from '../risk/anomaly.js';
 import { levelFor, type RiskEngine } from '../risk/riskEngine.js';
 import type { QuarantineService } from '../security/quarantine.js';
@@ -47,6 +48,8 @@ export interface PipelineDeps {
   serviceLimiter: RateLimiter;
   quarantine: QuarantineService;
   policies: PolicyEngine;
+  /** Records which permissions are really used (feeds the least-privilege recommender). */
+  usage: UsageTracker;
   anomaly: AnomalyEngine;
   lateral: LateralMovementDetector;
   risk: RiskEngine;
@@ -164,6 +167,7 @@ export class SecurityPipeline {
       return hardFail('authorization', 'MISSING_DESTINATION', 400, 'X-Destination-Service header is required', source);
     }
     const policy = this.d.policies.evaluate(source, input.destination, input.method, input.path);
+    if (!policy.allowed) this.d.usage.recordDenied(source, input.destination, policy.reason, now);
     if (!policy.allowed && !policy.dryRun) {
       return hardFail('authorization', policy.reason, 403, `${source} → ${input.destination} ${input.method} ${input.path}: ${policy.reason}`, source);
     }
@@ -175,6 +179,7 @@ export class SecurityPipeline {
       stages.push({ stage: 'authorization', outcome: 'flag', detail: `DRY-RUN: would block (${policy.reason}${policy.policyId ? ` by ${policy.policyId}` : ''}) — allowed through` });
     } else {
       stages.push({ stage: 'authorization', outcome: 'pass', detail: `allowed by policy ${policy.policyId}` });
+      this.d.usage.recordAllowed(policy.policyId!, input.method, input.path, this.d.policies.get(policy.policyId!)?.allowPaths, now);
     }
 
     // ── 5. PAYLOAD ANOMALY ─────────────────────────────────────────────────

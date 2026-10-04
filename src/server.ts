@@ -24,6 +24,7 @@ import type { ServiceClient } from './identity/serviceClient.js';
 import { startAutoRotation } from './identity/rotation.js';
 import { createMesh, type Mesh, type MeshOptions } from './mesh.js';
 import { attachWebSocket } from './observability/events.js';
+import { DEFAULT_RECOMMEND_OPTIONS, recommend } from './policy/recommend.js';
 import { listScenarios, runAll, runScenario, type SimContext } from './simulator/attacks.js';
 
 export interface App {
@@ -143,6 +144,18 @@ export async function createApp(config: MeshConfig, meshOptions: MeshOptions = {
   app.get('/.well-known/jwks.json', dashboardAccess, (_req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
     res.json(mesh.registry.publicJwks());
+  });
+  // Least-privilege advice from observed traffic. Query: ?minObservationSec=600&minHits=20&minDenied=5
+  app.get('/api/policies/recommendations', dashboardAccess, (req, res) => {
+    const num = (v: unknown, fallback: number) => (Number.isFinite(Number(v)) && Number(v) >= 0 && v !== undefined ? Number(v) : fallback);
+    const o = DEFAULT_RECOMMEND_OPTIONS;
+    res.json(
+      recommend(mesh.policies.list(), mesh.usage.snapshot(), mesh.clock(), {
+        minObservationMs: num(req.query.minObservationSec, o.minObservationMs / 1000) * 1000,
+        minHits: num(req.query.minHits, o.minHits),
+        minDenied: num(req.query.minDenied, o.minDenied),
+      }),
+    );
   });
   app.get('/api/quarantine', dashboardAccess, (_req, res) => void res.json(mesh.quarantine.list()));
   app.get('/api/audit', dashboardAccess, (req, res) => {

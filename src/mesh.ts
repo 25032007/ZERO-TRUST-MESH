@@ -16,6 +16,7 @@ import { MetricsCollector } from './observability/metrics.js';
 import { SecurityPipeline } from './pipeline/pipeline.js';
 import { DEFAULT_POLICIES, PolicyEngine, type Policy } from './policy/policyEngine.js';
 import { PolicyStore } from './policy/policyStore.js';
+import { UsageTracker } from './policy/usage.js';
 import { AnomalyEngine } from './risk/anomaly.js';
 import { RiskEngine } from './risk/riskEngine.js';
 import { QuarantineService } from './security/quarantine.js';
@@ -56,6 +57,7 @@ export function createMesh(config: MeshConfig, opts: MeshOptions = {}) {
   const metrics = new MetricsCollector(clock);
   const bus = new EventBus();
   const risk = new RiskEngine(config);
+  const usage = new UsageTracker(clock);
 
   const pipeline = new SecurityPipeline({
     config,
@@ -66,6 +68,7 @@ export function createMesh(config: MeshConfig, opts: MeshOptions = {}) {
     serviceLimiter: new RateLimiter(config.rateLimit.windowMs, config.rateLimit.maxRequests, clock),
     quarantine,
     policies,
+    usage,
     anomaly: new AnomalyEngine(config.payload),
     lateral: new LateralMovementDetector(config.lateral, (p) => policies.isKnownWorkflow(p)),
     risk,
@@ -74,7 +77,7 @@ export function createMesh(config: MeshConfig, opts: MeshOptions = {}) {
     bus,
   });
 
-  return { config, clock, registry, jtiStore, verifier, policies, policyStore, quarantine, risk, audit, metrics, bus, pipeline };
+  return { config, clock, registry, jtiStore, verifier, policies, policyStore, usage, quarantine, risk, audit, metrics, bus, pipeline };
 }
 
 export type Mesh = ReturnType<typeof createMesh>;

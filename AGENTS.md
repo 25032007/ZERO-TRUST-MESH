@@ -57,5 +57,5 @@ Before every commit: typecheck + tests pass. CI runs typecheck, test, build, dem
 - Final report: what changed, commands run with their results, known gaps.
 
 ## Status
-Done: Ed25519 identity, single-use tokens, policy-as-code (JSON, priority, dry-run, hot reload, declared workflows), per-pair baseline risk, JWKS + auto key rotation, least-privilege recommender, labeled traffic generator + metrics, evaluation runner (runner.ts + evalRunner.test.ts), grid-search tuning + multi-seed report (scripts/evaluate.ts → docs/EVALUATION.md), 20-service multi-concurrency load test (scripts/loadtest.ts → docs/LOADTEST.md), README + AGENTS.md docs update.
-Not done: dashboard polish (never checked in a real browser), optional Redis JtiStore and mTLS. 
+Done: Ed25519 identity, single-use tokens, policy-as-code (JSON, priority, dry-run, hot reload, declared workflows), per-pair baseline risk, JWKS + auto key rotation, least-privilege recommender, labeled traffic generator + metrics, evaluation runner (runner.ts + evalRunner.test.ts), grid-search tuning + multi-seed report (scripts/evaluate.ts → docs/EVALUATION.md), 20-service multi-concurrency load test (scripts/loadtest.ts → docs/LOADTEST.md), README + AGENTS.md docs update, dashboard polish.
+Not done: optional Redis JtiStore and mTLS. 

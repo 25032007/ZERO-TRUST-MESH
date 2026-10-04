@@ -30,6 +30,8 @@ export interface AuditRecord {
   method: string;
   path: string;
   factors: RiskFactor[];
+  /** Policy reason that WOULD have blocked this request (dry-run mode only). */
+  dryRunViolation?: string;
   /** Hash of the previous record ("GENESIS" for the first). */
   prevHash: string;
   /** Hash of this record. */

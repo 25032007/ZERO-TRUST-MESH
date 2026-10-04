@@ -96,6 +96,11 @@ export interface PipelineResult {
   stages: StageTrace[];
   /** True when a risky request was let through because a valid TOTP was supplied. */
   mfaSatisfied: boolean;
+  /**
+   * Set when a policy DENIED the request but dry-run mode let it through.
+   * "This request would have been blocked if the policy were enforced."
+   */
+  dryRunViolation?: { reason: string; policyId?: string };
   /** Time spent inside the security pipeline only (not the downstream call). */
   durationMs: number;
   timestamp: number;

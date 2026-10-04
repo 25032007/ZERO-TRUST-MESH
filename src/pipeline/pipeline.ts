@@ -74,6 +74,8 @@ export class SecurityPipeline {
     const now = this.d.clock();
     const cfg = this.d.config;
     const stages: StageTrace[] = [];
+    /** Filled in by stage 4 when dry-run mode lets a policy denial through. */
+    let dryRunViolation: PipelineResult['dryRunViolation'];
 
     /** Attach timing, write the audit record, update metrics, notify the dashboard. */
     const finish = (v: Verdict): PipelineResult => {
@@ -92,6 +94,7 @@ export class SecurityPipeline {
         factors: v.factors ?? [],
         stages,
         mfaSatisfied: v.mfaSatisfied ?? false,
+        dryRunViolation,
         durationMs: performance.now() - startedAt,
         timestamp: now,
       };
@@ -106,8 +109,10 @@ export class SecurityPipeline {
         method: result.method,
         path: result.path,
         factors: result.factors,
+        dryRunViolation: dryRunViolation?.reason,
         timestamp: now,
       });
+      if (dryRunViolation) this.d.metrics.recordDryRunViolation();
       this.d.metrics.record(result.decision, result.durationMs);
       this.d.bus.publishDecision(result);
       return result;
@@ -159,10 +164,18 @@ export class SecurityPipeline {
       return hardFail('authorization', 'MISSING_DESTINATION', 400, 'X-Destination-Service header is required', source);
     }
     const policy = this.d.policies.evaluate(source, input.destination, input.method, input.path);
-    if (!policy.allowed) {
+    if (!policy.allowed && !policy.dryRun) {
       return hardFail('authorization', policy.reason, 403, `${source} → ${input.destination} ${input.method} ${input.path}: ${policy.reason}`, source);
     }
-    stages.push({ stage: 'authorization', outcome: 'pass', detail: `allowed by policy ${policy.policyId}` });
+    if (!policy.allowed) {
+      // DRY-RUN: the policy says "deny", but we are only observing. Record what
+      // WOULD have happened and keep going so the rest of the pipeline (risk,
+      // anomaly, lateral movement) still sees realistic traffic.
+      dryRunViolation = { reason: policy.reason, policyId: policy.policyId };
+      stages.push({ stage: 'authorization', outcome: 'flag', detail: `DRY-RUN: would block (${policy.reason}${policy.policyId ? ` by ${policy.policyId}` : ''}) — allowed through` });
+    } else {
+      stages.push({ stage: 'authorization', outcome: 'pass', detail: `allowed by policy ${policy.policyId}` });
+    }
 
     // ── 5. PAYLOAD ANOMALY ─────────────────────────────────────────────────
     const anomaly = this.d.anomaly.analyze(input.destination, input.body, input.payloadBytes);

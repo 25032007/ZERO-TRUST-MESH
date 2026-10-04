@@ -22,11 +22,17 @@ export class MetricsCollector {
   private pipelineSamples = new Float64Array(SAMPLE_CAPACITY);
   private sampleCount = 0;
   private total = 0;
+  private dryRunViolations = 0;
   private byDecision: Record<Decision, number> = { ALLOW: 0, MONITOR: 0, STEP_UP_AUTH: 0, BLOCK: 0 };
   /** requests per wall-clock second, last 120 s. */
   private perSecond = new Map<number, number>();
 
   constructor(private readonly clock: () => number = Date.now) {}
+
+  /** A policy denial that dry-run mode let through ("would have blocked"). */
+  recordDryRunViolation(): void {
+    this.dryRunViolations++;
+  }
 
   /** `pipelineMs` is time inside the security pipeline only (not the downstream call). */
   record(decision: Decision, pipelineMs: number): void {
@@ -46,6 +52,7 @@ export class MetricsCollector {
     total: number;
     byDecision: Record<Decision, number>;
     blockRate: number;
+    dryRunViolations: number;
     requestsPerMinute: number;
     pipelineLatency: LatencyStats;
   } {
@@ -57,6 +64,7 @@ export class MetricsCollector {
       total: this.total,
       byDecision: { ...this.byDecision },
       blockRate: this.total === 0 ? 0 : this.byDecision.BLOCK / this.total,
+      dryRunViolations: this.dryRunViolations,
       requestsPerMinute: lastMinute,
       pipelineLatency: this.latency(),
     };

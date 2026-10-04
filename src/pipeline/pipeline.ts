@@ -190,7 +190,11 @@ export class SecurityPipeline {
     stages.push({
       stage: 'lateral_movement',
       outcome: lateral.detected ? 'flag' : 'pass',
-      detail: lateral.detected ? `${lateral.hops} hops: ${lateral.path.join(' → ')}` : `${lateral.hops} hop(s) in this trace`,
+      detail: lateral.detected
+        ? `${lateral.hops} hops: ${lateral.path.join(' → ')}`
+        : lateral.knownWorkflow
+          ? `declared workflow: ${lateral.path.join(' → ')}`
+          : `${lateral.hops} hop(s) in this trace`,
     });
 
     // ── 7. RISK SCORING ────────────────────────────────────────────────────

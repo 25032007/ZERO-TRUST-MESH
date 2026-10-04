@@ -29,6 +29,8 @@ export interface LateralResult {
   /** Ordered service path of the chain, e.g. [frontend, orders, payments, database]. */
   path: string[];
   hops: number;
+  /** True when the chain looked like traversal but matches a DECLARED workflow, so it was not flagged. */
+  knownWorkflow: boolean;
 }
 
 const MAX_TRACKED_TRACES = 10_000;
@@ -36,7 +38,15 @@ const MAX_TRACKED_TRACES = 10_000;
 export class LateralMovementDetector {
   private traces = new Map<string, Hop[]>();
 
-  constructor(private readonly cfg: MeshConfig['lateral']) {}
+  constructor(
+    private readonly cfg: MeshConfig['lateral'],
+    /**
+     * Optional allow-list of declared workflows (policy-as-code). A chain that
+     * matches one is normal business logic, not an attacker pivoting. This is
+     * how legitimate deep call chains stop causing false positives.
+     */
+    private readonly isKnownWorkflow: (path: string[]) => boolean = () => false,
+  ) {}
 
   observe(traceId: string, from: string, to: string, now: number): LateralResult {
     // Keep only hops that are still inside the sliding window.
@@ -51,7 +61,7 @@ export class LateralMovementDetector {
     // Count DISTINCT edges: hammering the same hop 100 times is a frequency
     // problem (handled elsewhere), not a traversal across the mesh.
     const distinct = new Set(hops.map((h) => `${h.from}->${h.to}`));
-    const detected = distinct.size >= this.cfg.minHops;
+    const looksLikeTraversal = distinct.size >= this.cfg.minHops;
 
     // Rebuild the node path in the order the hops happened.
     const path: string[] = [];
@@ -59,6 +69,7 @@ export class LateralMovementDetector {
       if (path.length === 0) path.push(h.from);
       if (path[path.length - 1] !== h.to) path.push(h.to);
     }
-    return { detected, path, hops: distinct.size };
+    const knownWorkflow = looksLikeTraversal && this.isKnownWorkflow(path);
+    return { detected: looksLikeTraversal && !knownWorkflow, path, hops: distinct.size, knownWorkflow };
   }
 }

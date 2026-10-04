@@ -163,3 +163,22 @@ test('every decision is written to the audit log and counted in metrics', async 
   assert.equal(ctx.mesh.audit.recent(10).length, 2);
   assert.equal(ctx.mesh.audit.verify().valid, true);
 });
+
+test('a DECLARED workflow is allowed end-to-end, while an undeclared 3-hop chain is still blocked and quarantined', async () => {
+  const ctx = await setup();
+  ctx.mesh.policies.setAllowedWorkflows([['frontend-service', 'orders-service', 'payments-service', 'database-service']]);
+
+  const t1 = 'legit-trace';
+  await call(ctx, 'frontend-service', { traceId: t1 });
+  await call(ctx, 'orders-service', { traceId: t1, destination: 'payments-service', method: 'POST', path: '/payments/charge' });
+  const third = await call(ctx, 'payments-service', { traceId: t1, destination: 'database-service', path: '/database/rows' });
+  assert.notEqual(third.decision, 'BLOCK');
+  assert.ok(third.stages.find((s) => s.stage === 'lateral_movement')!.detail.startsWith('declared workflow'));
+
+  // Same edges, different shape (frontend also talks to auth, orders to users) -> not declared.
+  const t2 = 'odd-trace';
+  await call(ctx, 'frontend-service', { traceId: t2 });
+  await call(ctx, 'frontend-service', { traceId: t2, destination: 'auth-service', method: 'POST', path: '/auth/login' });
+  const odd = await call(ctx, 'orders-service', { traceId: t2, destination: 'users-service', path: '/users/me' });
+  assert.equal(odd.reason, 'LATERAL_MOVEMENT');
+});

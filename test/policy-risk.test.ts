@@ -90,3 +90,20 @@ test('config: environment overrides and sane defaults', () => {
   assert.equal(loadConfig({}).adminKeyGenerated, true);
   assert.equal(loadConfig({ PUBLIC_DASHBOARD: 'false' }).publicDashboard, false);
 });
+
+test('lateral movement: a declared workflow is not flagged, but a different chain still is', () => {
+  const known = (p: string[]) => ['a', 'b', 'c', 'd'].slice(0, p.length).join() === p.join();
+  const d = new LateralMovementDetector({ windowMs: 1000, minHops: 3 }, known);
+
+  d.observe('legit', 'a', 'b', 0);
+  d.observe('legit', 'b', 'c', 100);
+  const legit = d.observe('legit', 'c', 'd', 200);
+  assert.equal(legit.detected, false);
+  assert.equal(legit.knownWorkflow, true);
+
+  d.observe('evil', 'a', 'x', 0);
+  d.observe('evil', 'a', 'y', 100);
+  const evil = d.observe('evil', 'x', 'z', 200);
+  assert.equal(evil.detected, true);
+  assert.equal(evil.knownWorkflow, false);
+});

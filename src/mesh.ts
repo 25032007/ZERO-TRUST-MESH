@@ -67,7 +67,7 @@ export function createMesh(config: MeshConfig, opts: MeshOptions = {}) {
     quarantine,
     policies,
     anomaly: new AnomalyEngine(config.payload),
-    lateral: new LateralMovementDetector(config.lateral),
+    lateral: new LateralMovementDetector(config.lateral, (p) => policies.isKnownWorkflow(p)),
     risk,
     audit,
     metrics,

@@ -26,6 +26,8 @@ export type ServiceStatus = 'ACTIVE' | 'DISABLED' | 'REVOKED';
 interface StoredKey {
   kid: string;
   key: VerifyKey;
+  /** The public JWK as registered (published through the JWKS endpoint). */
+  jwk: JWK;
   /** Unix ms after which this key no longer verifies (set during rotation). */
   notAfter?: number;
 }
@@ -83,7 +85,7 @@ export class ServiceRegistry {
       displayName: params.displayName,
       status: 'ACTIVE',
       currentKid: params.kid,
-      keys: new Map([[params.kid, { kid: params.kid, key }]]),
+      keys: new Map([[params.kid, { kid: params.kid, key, jwk: publicOnly(params.publicJwk, params.kid) }]]),
       totpSecret,
       lastTotpStep: -1,
       registeredAt: this.clock(),
@@ -100,13 +102,51 @@ export class ServiceRegistry {
     const svc = this.mustGet(serviceId);
     if (svc.keys.has(newKid)) throw new Error(`kid already used: ${newKid}`);
 
+    const key = await importPublicKey(publicJwk); // validate BEFORE touching any state
+
     const now = this.clock();
+    this.pruneExpiredKeys(svc);
     for (const stored of svc.keys.values()) {
       // Only shorten — never extend — an existing expiry.
       stored.notAfter = Math.min(stored.notAfter ?? Infinity, now + graceMs);
     }
-    svc.keys.set(newKid, { kid: newKid, key: await importPublicKey(publicJwk) });
+    svc.keys.set(newKid, { kid: newKid, key, jwk: publicOnly(publicJwk, newKid) });
     svc.currentKid = newKid;
+  }
+
+  /**
+   * Emergency response to a suspected key compromise: remove ONE key immediately
+   * (no grace period). Tokens signed with it fail at once with UNKNOWN_KEY.
+   * Returns false when the kid does not exist.
+   */
+  revokeKey(serviceId: string, kid: string): boolean {
+    return this.mustGet(serviceId).keys.delete(kid);
+  }
+
+  /**
+   * All currently valid public keys of all ACTIVE services, as a JWKS document
+   * (RFC 7517). Each key carries an extra "service" member so consumers can map
+   * kid -> workload. Only PUBLIC material is ever stored, so this is safe to publish.
+   */
+  publicJwks(): { keys: Array<JWK & { service: string }> } {
+    const now = this.clock();
+    const keys: Array<JWK & { service: string }> = [];
+    for (const svc of this.services.values()) {
+      if (svc.status !== 'ACTIVE') continue;
+      for (const stored of svc.keys.values()) {
+        if (stored.notAfter !== undefined && now > stored.notAfter) continue;
+        keys.push({ ...stored.jwk, service: svc.serviceId });
+      }
+    }
+    return { keys };
+  }
+
+  /** Drop keys whose rotation grace period has ended (keeps the key map small). */
+  private pruneExpiredKeys(svc: ServiceRecord): void {
+    const now = this.clock();
+    for (const [kid, stored] of svc.keys) {
+      if (stored.notAfter !== undefined && now > stored.notAfter) svc.keys.delete(kid);
+    }
   }
 
   setStatus(serviceId: string, status: ServiceStatus): void {
@@ -167,6 +207,11 @@ export class ServiceRegistry {
     if (!svc) throw new Error(`Unknown service: ${serviceId}`);
     return svc;
   }
+}
+
+/** Normalise a registered JWK to the public members we publish (no extras can leak through). */
+function publicOnly(jwk: JWK, kid: string): JWK {
+  return { kty: jwk.kty, crv: jwk.crv, x: jwk.x, kid, alg: 'EdDSA', use: 'sig' };
 }
 
 /** Import an Ed25519 public JWK, refusing anything that is not Ed25519. */

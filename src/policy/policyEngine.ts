@@ -113,6 +113,10 @@ export class PolicyEngine {
     return [...this.policies.values()];
   }
 
+  get(id: string): Policy | undefined {
+    return this.policies.get(id);
+  }
+
   /** Replace the declared workflows (chains of services that legitimately call each other in sequence). */
   setAllowedWorkflows(workflows: string[][]): void {
     this.workflows = workflows.map((w) => [...w]);

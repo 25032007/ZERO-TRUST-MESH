@@ -34,6 +34,9 @@ export interface MeshConfig {
   /** Allowed clock drift between a service and the proxy. */
   clockToleranceSec: number;
 
+  /** Rotate the demo services' keys automatically every N ms (0 = off). */
+  keyRotationMs: number;
+
   // ── Rate limiting ────────────────────────────────────────────────────────
   rateLimit: { windowMs: number; maxRequests: number };
 
@@ -138,6 +141,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): MeshConfig {
     audience: 'zero-trust-mesh',
     maxTokenLifetimeSec: num(env, 'TOKEN_MAX_LIFETIME_SEC', 900),
     clockToleranceSec: num(env, 'CLOCK_TOLERANCE_SEC', 5),
+    keyRotationMs: num(env, 'KEY_ROTATION_MS', 0),
 
     rateLimit: {
       windowMs: num(env, 'RATE_LIMIT_WINDOW_MS', 60_000),

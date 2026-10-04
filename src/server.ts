@@ -21,6 +21,7 @@ import type { MeshConfig } from './config.js';
 import { createDemoMesh } from './demoMesh.js';
 import { createDownstreamRouter, INTERNAL_HEADER, INTERNAL_SECRET } from './downstream/mockServices.js';
 import type { ServiceClient } from './identity/serviceClient.js';
+import { startAutoRotation } from './identity/rotation.js';
 import { createMesh, type Mesh, type MeshOptions } from './mesh.js';
 import { attachWebSocket } from './observability/events.js';
 import { listScenarios, runAll, runScenario, type SimContext } from './simulator/attacks.js';
@@ -138,6 +139,11 @@ export async function createApp(config: MeshConfig, meshOptions: MeshOptions = {
   app.get('/api/services', dashboardAccess, (_req, res) => void res.json(mesh.registry.list()));
   app.get('/api/policies', dashboardAccess, (_req, res) => void res.json(mesh.policies.list()));
   app.get('/api/policies/status', dashboardAccess, (_req, res) => void res.json(mesh.policyStore.status()));
+  // JWKS (RFC 7517): every currently valid PUBLIC key. Contains no secrets by construction.
+  app.get('/.well-known/jwks.json', dashboardAccess, (_req, res) => {
+    res.setHeader('Cache-Control', 'no-cache');
+    res.json(mesh.registry.publicJwks());
+  });
   app.get('/api/quarantine', dashboardAccess, (_req, res) => void res.json(mesh.quarantine.list()));
   app.get('/api/audit', dashboardAccess, (req, res) => {
     const limit = Math.min(Number(req.query.limit) || 100, 500);
@@ -201,6 +207,15 @@ export async function createApp(config: MeshConfig, meshOptions: MeshOptions = {
       res.status(404).json({ error: (err as Error).message });
     }
   });
+  // Emergency: kill ONE key immediately (no grace period).
+  app.post('/admin/services/:id/keys/:kid/revoke', requireAdmin, (req, res) => {
+    try {
+      const removed = mesh.registry.revokeKey(String(req.params.id), String(req.params.kid));
+      res.status(removed ? 200 : 404).json({ revoked: removed });
+    } catch (err) {
+      res.status(404).json({ error: (err as Error).message });
+    }
+  });
   app.post('/admin/tokens/revoke', requireAdmin, async (req, res) => {
     const { jti, expiresAtSec } = req.body as { jti?: string; expiresAtSec?: number };
     if (!jti) {
@@ -233,6 +248,23 @@ export async function createApp(config: MeshConfig, meshOptions: MeshOptions = {
   });
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
+  // Optional automated rotation of the demo services' keys. The grace period must
+  // outlive the longest token, otherwise a token signed just before a rotation
+  // could be rejected mid-flight.
+  const stopRotations: Array<() => void> = [];
+  if (config.keyRotationMs > 0) {
+    const graceMs = (config.maxTokenLifetimeSec + config.clockToleranceSec) * 1000;
+    for (const client of clients.values()) {
+      stopRotations.push(
+        startAutoRotation(client, {
+          intervalMs: config.keyRotationMs,
+          register: (jwk, kid) => mesh.registry.rotateKey(client.serviceId, jwk, kid, graceMs),
+          onError: (err) => console.error(`[rotation] ${client.serviceId} failed:`, (err as Error).message),
+        }),
+      );
+    }
+  }
+
   const server = createServer(app);
   if (config.policyWatch && mesh.policyStore.hasFile) mesh.policyStore.watch();
   attachWebSocket(server, mesh.bus, (url) => config.publicDashboard || safeEqual(url.searchParams.get('key') ?? '', config.adminApiKey));
@@ -253,6 +285,7 @@ export async function createApp(config: MeshConfig, meshOptions: MeshOptions = {
     close: () =>
       new Promise((resolve) => {
         mesh.policyStore.close();
+        stopRotations.forEach((stop) => stop());
         server.closeAllConnections?.();
         server.close(() => resolve());
       }),

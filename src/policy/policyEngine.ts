@@ -64,6 +64,8 @@ export class PolicyEngine {
   /** Index by "source->destination", pre-sorted, so evaluation is one Map lookup. */
   private byPair = new Map<string, Policy[]>();
   private globalDryRun = false;
+  /** Declared legitimate multi-hop chains (see isKnownWorkflow). */
+  private workflows: string[][] = [];
 
   constructor(
     initial: Policy[] = [],
@@ -109,6 +111,24 @@ export class PolicyEngine {
 
   list(): Policy[] {
     return [...this.policies.values()];
+  }
+
+  /** Replace the declared workflows (chains of services that legitimately call each other in sequence). */
+  setAllowedWorkflows(workflows: string[][]): void {
+    this.workflows = workflows.map((w) => [...w]);
+  }
+
+  allowedWorkflows(): string[][] {
+    return this.workflows.map((w) => [...w]);
+  }
+
+  /**
+   * Is `path` (e.g. [frontend, orders, payments, database]) a declared workflow
+   * or the START of one? Prefix matching matters because the lateral-movement
+   * detector fires as soon as the third hop appears, i.e. mid-workflow.
+   */
+  isKnownWorkflow(path: string[]): boolean {
+    return this.workflows.some((wf) => path.length <= wf.length && path.every((svc, i) => wf[i] === svc));
   }
 
   evaluate(source: string, destination: string, method: string, path: string): PolicyDecision {

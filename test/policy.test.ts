@@ -57,3 +57,15 @@ test('replaceAll swaps the whole set atomically and drops removed policies', () 
   assert.equal(p.evaluate('c', 'd', 'GET', '/').allowed, true);
   assert.deepEqual(p.list().map((x) => x.id), ['new']);
 });
+
+test('declared workflows match exactly or as a prefix, never as a different path', () => {
+  const p = new PolicyEngine([]);
+  p.setAllowedWorkflows([['a', 'b', 'c', 'd']]);
+  assert.equal(p.isKnownWorkflow(['a', 'b', 'c', 'd']), true);
+  assert.equal(p.isKnownWorkflow(['a', 'b', 'c']), true); // detector fires mid-workflow
+  assert.equal(p.isKnownWorkflow(['a', 'c', 'b']), false);
+  assert.equal(p.isKnownWorkflow(['b', 'c', 'd']), false); // must start at the beginning
+  assert.equal(p.isKnownWorkflow(['a', 'b', 'c', 'd', 'e']), false); // longer than declared
+  p.setAllowedWorkflows([]);
+  assert.equal(p.isKnownWorkflow(['a', 'b', 'c']), false);
+});

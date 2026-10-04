@@ -137,6 +137,7 @@ export async function createApp(config: MeshConfig, meshOptions: MeshOptions = {
   app.get('/api/metrics', dashboardAccess, (_req, res) => void res.json(mesh.metrics.snapshot()));
   app.get('/api/services', dashboardAccess, (_req, res) => void res.json(mesh.registry.list()));
   app.get('/api/policies', dashboardAccess, (_req, res) => void res.json(mesh.policies.list()));
+  app.get('/api/policies/status', dashboardAccess, (_req, res) => void res.json(mesh.policyStore.status()));
   app.get('/api/quarantine', dashboardAccess, (_req, res) => void res.json(mesh.quarantine.list()));
   app.get('/api/audit', dashboardAccess, (req, res) => {
     const limit = Math.min(Number(req.query.limit) || 100, 500);
@@ -209,6 +210,12 @@ export async function createApp(config: MeshConfig, meshOptions: MeshOptions = {
     await mesh.jtiStore.revoke(jti, expiresAtSec ?? Math.floor(Date.now() / 1000) + config.maxTokenLifetimeSec);
     res.json({ revoked: jti });
   });
+  // Manual reload (also happens automatically when POLICY_WATCH is on). An invalid
+  // file is rejected with 422 and the previous policies stay active.
+  app.post('/admin/policies/reload', requireAdmin, (_req, res) => {
+    const result = mesh.policyStore.reload();
+    res.status(result.ok ? 200 : 422).json({ ...result, status: mesh.policyStore.status() });
+  });
   app.post('/admin/quarantine/:id/release', requireAdmin, (req, res) => {
     res.json({ released: mesh.quarantine.release(String(req.params.id)) });
   });
@@ -227,6 +234,7 @@ export async function createApp(config: MeshConfig, meshOptions: MeshOptions = {
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
   const server = createServer(app);
+  if (config.policyWatch && mesh.policyStore.hasFile) mesh.policyStore.watch();
   attachWebSocket(server, mesh.bus, (url) => config.publicDashboard || safeEqual(url.searchParams.get('key') ?? '', config.adminApiKey));
 
   return {
@@ -244,6 +252,7 @@ export async function createApp(config: MeshConfig, meshOptions: MeshOptions = {
       }),
     close: () =>
       new Promise((resolve) => {
+        mesh.policyStore.close();
         server.closeAllConnections?.();
         server.close(() => resolve());
       }),

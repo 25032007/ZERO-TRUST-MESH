@@ -77,8 +77,8 @@ test('framing: forged tokens in a victim\'s name do not raise the VICTIM\'s risk
   assert.equal(real.decision, 'ALLOW');
 });
 
-test('burst of requests raises ELEVATED then ABNORMAL frequency', async () => {
-  const ctx = await setup({ BURST_WARN_AT: '5', BURST_HIGH_AT: '10', RATE_LIMIT_MAX_REQUESTS: '100000' });
+test('fixed-threshold mode: burst of requests raises ELEVATED then ABNORMAL frequency', async () => {
+  const ctx = await setup({ RISK_MODE: 'fixed', BURST_WARN_AT: '5', BURST_HIGH_AT: '10', RATE_LIMIT_MAX_REQUESTS: '100000' });
   const codes: string[][] = [];
   for (let i = 0; i < 12; i++) codes.push((await call(ctx, 'frontend-service')).factors.map((f) => f.code));
   assert.ok(codes[5].includes('ELEVATED_FREQUENCY'));
@@ -110,7 +110,7 @@ test('lateral movement blocks the 3rd hop and quarantines the pivot until releas
 });
 
 test('critical risk score blocks and quarantines', async () => {
-  const ctx = await setup({ BURST_WARN_AT: '2', BURST_HIGH_AT: '3', RATE_LIMIT_MAX_REQUESTS: '100000' });
+  const ctx = await setup({ RISK_MODE: 'fixed', BURST_WARN_AT: '2', BURST_HIGH_AT: '3', RATE_LIMIT_MAX_REQUESTS: '100000' });
   ctx.clock.set(Date.UTC(2026, 0, 15, 3, 0, 0)); // off hours +5
   // big AND deeply nested -> 25 + 25 anomaly points; plus sensitive target, off-hours and a request burst
   let bomb: unknown = 'x'.repeat(150_000);
@@ -181,4 +181,47 @@ test('a DECLARED workflow is allowed end-to-end, while an undeclared 3-hop chain
   await call(ctx, 'frontend-service', { traceId: t2, destination: 'auth-service', method: 'POST', path: '/auth/login' });
   const odd = await call(ctx, 'orders-service', { traceId: t2, destination: 'users-service', path: '/users/me' });
   assert.equal(odd.reason, 'LATERAL_MOVEMENT');
+});
+
+test('baseline mode: steady traffic is never flagged, a spike on the SAME edge is (no fixed thresholds involved)', async () => {
+  const ctx = await setup({ RATE_LIMIT_MAX_REQUESTS: '100000' });
+  const W = ctx.config.baseline.windowMs;
+  const spikeCodes = (r: { factors: { code: string }[] }) => r.factors.filter((f) => f.code === 'RATE_SPIKE');
+
+  // 10 windows of steady traffic (20 requests per window): the edge learns what "normal" is.
+  let falseAlarms = 0;
+  for (let w = 0; w < 10; w++) {
+    for (let i = 0; i < 20; i++) {
+      falseAlarms += spikeCodes(await call(ctx, 'frontend-service')).length;
+      ctx.clock.advance(W / 20);
+    }
+  }
+  assert.equal(falseAlarms, 0);
+
+  // Sudden burst: 150 requests inside one window.
+  let flagged = 0;
+  for (let i = 0; i < 150; i++) {
+    const r = await call(ctx, 'frontend-service');
+    if (spikeCodes(r).length > 0) flagged++;
+    ctx.clock.advance(5);
+  }
+  assert.ok(flagged > 100, `expected most of the burst to be flagged, got ${flagged}`);
+});
+
+test('baseline mode: the same request count is normal on a busy edge but a spike on a quiet one', async () => {
+  const ctx = await setup({ RATE_LIMIT_MAX_REQUESTS: '100000' });
+  const W = ctx.config.baseline.windowMs;
+  const hasSpike = (r: { factors: { code: string }[] }) => r.factors.some((f) => f.code === 'RATE_SPIKE');
+
+  // frontend->orders is busy (60/window), frontend->auth is quiet (4/window).
+  for (let w = 0; w < 10; w++) {
+    for (let i = 0; i < 60; i++) { await call(ctx, 'frontend-service'); ctx.clock.advance(W / 60); }
+    for (let i = 0; i < 4; i++) await call(ctx, 'frontend-service', { destination: 'auth-service', method: 'POST', path: '/auth/login' });
+  }
+  let busySpike = false;
+  for (let i = 0; i < 80; i++) { busySpike ||= hasSpike(await call(ctx, 'frontend-service')); ctx.clock.advance(5); }
+  let quietSpike = false;
+  for (let i = 0; i < 80; i++) { quietSpike ||= hasSpike(await call(ctx, 'frontend-service', { destination: 'auth-service', method: 'POST', path: '/auth/login' })); ctx.clock.advance(5); }
+  assert.equal(busySpike, false, '80 requests is only ~1.3x the busy edge\'s normal rate');
+  assert.equal(quietSpike, true, '80 requests is 20x the quiet edge\'s normal rate');
 });

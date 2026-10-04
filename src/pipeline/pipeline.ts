@@ -178,7 +178,8 @@ export class SecurityPipeline {
     }
 
     // ── 5. PAYLOAD ANOMALY ─────────────────────────────────────────────────
-    const anomaly = this.d.anomaly.analyze(input.destination, input.body, input.payloadBytes);
+    // Payload sizes are learned PER PAIR: what is normal for orders → payments is not normal for frontend → auth.
+    const anomaly = this.d.anomaly.analyze(`${source}->${input.destination}`, input.body, input.payloadBytes);
     stages.push({
       stage: 'payload_anomaly',
       outcome: anomaly.points > 0 ? 'flag' : 'pass',

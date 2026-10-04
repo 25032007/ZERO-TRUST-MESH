@@ -6,6 +6,7 @@
  * code runs in dev, tests, benchmarks and production.
  */
 import { randomBytes } from 'node:crypto';
+import type { BaselineParams } from './risk/baseline.js';
 
 export interface MeshConfig {
   port: number;
@@ -41,6 +42,15 @@ export interface MeshConfig {
   quarantineMs: number;
 
   // ── Risk scoring ─────────────────────────────────────────────────────────
+  /**
+   * How request-rate spikes are detected.
+   *   baseline : per-service-pair rolling EWMA + z-score (default; no magic numbers)
+   *   fixed    : "N requests in 5 s" thresholds (kept so the evaluation harness can
+   *              compare the two approaches on identical traffic)
+   */
+  riskMode: 'baseline' | 'fixed';
+  /** Parameters of the rolling baseline (see src/risk/baseline.ts). */
+  baseline: BaselineParams;
   thresholds: {
     /** score >= this  -> MONITOR (allowed, but flagged) */
     monitor: number;
@@ -54,13 +64,17 @@ export interface MeshConfig {
     newServicePair: number;
     sensitiveEndpoint: number;
     offHours: number;
+    /** Fixed-threshold mode only. */
     burstWarn: number;
     burstHigh: number;
+    /** Baseline mode: z >= zWarn / z >= zHigh. */
+    rateSpikeElevated: number;
+    rateSpikeHigh: number;
     perRecentAuthFailure: number;
     maxAuthFailurePoints: number;
     lateralMovement: number;
   };
-  /** Request-frequency thresholds (requests by one service inside burstWindowMs). */
+  /** Fixed-threshold mode only: requests by one service inside burst.windowMs. */
   burst: { windowMs: number; warnAt: number; highAt: number };
   /** Auth failures from one IP are remembered for this long. */
   authFailureWindowMs: number;
@@ -132,6 +146,18 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): MeshConfig {
 
     quarantineMs: num(env, 'QUARANTINE_MS', 60_000),
 
+    riskMode: env.RISK_MODE === 'fixed' ? 'fixed' : 'baseline',
+    baseline: {
+      windowMs: num(env, 'BASELINE_WINDOW_MS', 5_000),
+      alpha: num(env, 'BASELINE_ALPHA', 0.2),
+      minWindows: num(env, 'BASELINE_MIN_WINDOWS', 6),
+      minSpikeCount: num(env, 'BASELINE_MIN_SPIKE', 10),
+      minRelativeStd: num(env, 'BASELINE_MIN_REL_STD', 0.25),
+      clampZ: num(env, 'BASELINE_CLAMP_Z', 3),
+      zWarn: num(env, 'BASELINE_Z_WARN', 3),
+      zHigh: num(env, 'BASELINE_Z_HIGH', 6),
+    },
+
     thresholds: {
       monitor: num(env, 'RISK_MONITOR_AT', 30),
       stepUp: num(env, 'RISK_STEP_UP_AT', 60),
@@ -143,6 +169,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): MeshConfig {
       offHours: 5,
       burstWarn: 10,
       burstHigh: 20,
+      rateSpikeElevated: 10,
+      rateSpikeHigh: 20,
       perRecentAuthFailure: 5,
       maxAuthFailurePoints: 25,
       lateralMovement: 50,

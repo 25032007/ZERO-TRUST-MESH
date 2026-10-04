@@ -19,6 +19,7 @@ import type { RiskFactor, RiskLevel } from '../types.js';
 import type { AnomalyResult } from './anomaly.js';
 import type { LateralResult } from '../detection/lateralMovement.js';
 import { SlidingCounter, capMap } from '../util/slidingCounter.js';
+import { PairBaseline } from './baseline.js';
 
 export interface RiskInput {
   source: string;
@@ -49,12 +50,21 @@ export function levelFor(score: number): RiskLevel {
 export class RiskEngine {
   /** "source->destination" pairs that have been seen before (the mesh's "normal"). */
   private seenPairs = new Set<string>();
-  /** Requests per calling service (for burst detection). */
+  /** Requests per calling service (fixed-threshold mode only). */
   private frequency = new Map<string, SlidingCounter>();
+  /** Rolling per-pair rate baseline (baseline mode). */
+  private readonly baseline: PairBaseline;
   /** Failed authentications per IP address. */
   private authFailures = new Map<string, SlidingCounter>();
 
-  constructor(private readonly cfg: MeshConfig) {}
+  constructor(private readonly cfg: MeshConfig) {
+    this.baseline = new PairBaseline(cfg.baseline);
+  }
+
+  /** What the rate baseline currently considers normal for a pair (dashboard / recommender). */
+  baselineFor(pair: string) {
+    return this.baseline.peek(pair);
+  }
 
   /** Called by the pipeline whenever authentication fails for a request from `ip`. */
   recordAuthFailure(ip: string, now: number): void {
@@ -102,17 +112,29 @@ export class RiskEngine {
       factors.push({ code: 'OFF_HOURS', points: pts.offHours, detail: `Request at ${hour}:00 UTC, outside ${startHour}-${endHour}` });
     }
 
-    // 4. Is this service suddenly much busier than usual?
-    let freq = this.frequency.get(input.source);
-    if (!freq) {
-      freq = new SlidingCounter();
-      this.frequency.set(input.source, freq);
-    }
-    const recent = freq.hit(input.now, this.cfg.burst.windowMs);
-    if (recent >= this.cfg.burst.highAt) {
-      factors.push({ code: 'ABNORMAL_FREQUENCY', points: pts.burstHigh, detail: `${recent} requests in ${this.cfg.burst.windowMs / 1000}s` });
-    } else if (recent >= this.cfg.burst.warnAt) {
-      factors.push({ code: 'ELEVATED_FREQUENCY', points: pts.burstWarn, detail: `${recent} requests in ${this.cfg.burst.windowMs / 1000}s` });
+    // 4. Is this edge suddenly much busier than IT is normally?
+    if (this.cfg.riskMode === 'baseline') {
+      const r = this.baseline.observe(pair, input.now);
+      if (r.level !== 'none') {
+        factors.push({
+          code: 'RATE_SPIKE',
+          points: r.level === 'high' ? pts.rateSpikeHigh : pts.rateSpikeElevated,
+          detail: `${r.count} requests in ${this.cfg.baseline.windowMs / 1000}s vs normal ${r.mean.toFixed(1)}±${r.std.toFixed(1)} on ${pair} (z=${r.z.toFixed(1)})`,
+        });
+      }
+    } else {
+      // Fixed thresholds: one global "N per window" rule per calling service.
+      let freq = this.frequency.get(input.source);
+      if (!freq) {
+        freq = new SlidingCounter();
+        this.frequency.set(input.source, freq);
+      }
+      const recent = freq.hit(input.now, this.cfg.burst.windowMs);
+      if (recent >= this.cfg.burst.highAt) {
+        factors.push({ code: 'ABNORMAL_FREQUENCY', points: pts.burstHigh, detail: `${recent} requests in ${this.cfg.burst.windowMs / 1000}s` });
+      } else if (recent >= this.cfg.burst.warnAt) {
+        factors.push({ code: 'ELEVATED_FREQUENCY', points: pts.burstWarn, detail: `${recent} requests in ${this.cfg.burst.windowMs / 1000}s` });
+      }
     }
 
     // 5. Odd-looking body?

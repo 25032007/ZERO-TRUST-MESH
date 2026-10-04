@@ -56,12 +56,12 @@ export function jsonDepth(value: unknown): number {
 }
 
 export class AnomalyEngine {
-  /** One size baseline per destination service. */
+  /** One size baseline per key (the pipeline uses "source->destination"). */
   private baselines = new Map<string, Welford>();
 
   constructor(private readonly cfg: MeshConfig['payload']) {}
 
-  analyze(destination: string, body: unknown, bytes: number): AnomalyResult {
+  analyze(key: string, body: unknown, bytes: number): AnomalyResult {
     const findings: string[] = [];
     let points = 0;
 
@@ -77,10 +77,10 @@ export class AnomalyEngine {
     }
 
     // Statistical check — only once we have enough history to trust it.
-    let base = this.baselines.get(destination);
+    let base = this.baselines.get(key);
     if (!base) {
       base = new Welford();
-      this.baselines.set(destination, base);
+      this.baselines.set(key, base);
     }
     if (base.n >= this.cfg.minSamples) {
       // Floor the std-dev at 1 byte so a perfectly constant history doesn't divide by ~0.

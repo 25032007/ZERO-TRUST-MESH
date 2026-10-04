@@ -14,7 +14,8 @@
     "test": "node --import tsx --test test/*.test.ts",
     "demo": "tsx scripts/demo.ts",
     "bench": "tsx scripts/bench.ts",
-    "evaluate": "tsx scripts/evaluate.ts"
+    "evaluate": "tsx scripts/evaluate.ts",
+    "loadtest": "tsx scripts/loadtest.ts"
   },
   "dependencies": {
     "express": "^5.1.0",

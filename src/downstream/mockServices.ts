@@ -1,13 +1,18 @@
-/**
+﻿/**
  * Mock downstream microservices.
  *
  * A zero-trust proxy needs something to protect, so we host five tiny fake
- * services inside the same process under /downstream/<service>/…
+ * services inside the same process under /downstream/<service>/...
  *
  * IMPORTANT security property demonstrated here: the downstream services do NOT
  * trust the network. They only answer requests that carry the secret
  * `x-mesh-internal` header, which only the proxy knows. So you cannot bypass the
  * proxy by calling /downstream/database-service/... directly.
+ *
+ * GENERIC FALLBACK: the five named handlers cover the demo topology. Any other
+ * registered service name (e.g. services dynamically created by the load test)
+ * receives a generic `{ok:true, action:'METHOD /path'}` response. The security
+ * property is unchanged - the internal-secret check always runs first.
  */
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { Router } from 'express';
@@ -40,13 +45,19 @@ export function createDownstreamRouter(): Router {
 
     // 2. /<service>/<rest of path>
     const [, service, ...rest] = req.path.split('/');
-    const handler = handlers[service];
-    if (!handler) {
+    if (!service) {
+      // No service segment at all - malformed path.
       res.status(404).json({ error: 'UNKNOWN_DOWNSTREAM', service });
       return;
     }
-    const path = '/' + rest.join('/');
-    res.json({ service, receivedFrom: req.headers['x-zt-source'], ...(handler(req.method, path, req.body) as object) });
+    const handler = handlers[service];
+    const subPath = '/' + rest.join('/');
+    // Named demo services get canned responses; any other registered service
+    // gets a simple OK so the load-test can register arbitrary names.
+    const payload = handler
+      ? (handler(req.method, subPath, req.body) as object)
+      : { ok: true, action: `${req.method} ${subPath}` };
+    res.json({ service, receivedFrom: req.headers['x-zt-source'], ...payload });
   });
 
   return router;

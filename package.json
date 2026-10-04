@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/package.json",
   "name": "zero-trust-mesh",
   "version": "1.0.0",
   "description": "Zero-trust policy enforcement proxy for service-to-service traffic: Ed25519 workload identity, single-use tokens, default-deny policy, explainable risk scoring, lateral-movement detection, tamper-evident audit log.",
@@ -12,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test test/*.test.ts",
     "demo": "tsx scripts/demo.ts",
-    "bench": "tsx scripts/bench.ts"
+    "bench": "tsx scripts/bench.ts",
+    "evaluate": "tsx scripts/evaluate.ts"
   },
   "dependencies": {
     "express": "^5.1.0",

@@ -7,26 +7,42 @@
  *
  * A policy can narrow things further by HTTP method, path prefix, explicit
  * deny-paths and time window.
+ *
+ * Policy model (v2)
+ *   effect   'allow' (default) | 'deny'   — an explicit deny wins over allows of equal
+ *                                            or lower priority ("never let X talk to Y").
+ *   priority integer, higher is evaluated first (default 0). At equal priority a
+ *            deny is evaluated before an allow, so ties fail safe.
+ *   mode     'enforce' (default) | 'dry-run' — in dry-run the engine still computes
+ *            the verdict but flags it so the pipeline can LOG "would have blocked"
+ *            instead of blocking. This is how you roll out a new rule safely.
  */
+
+export type PolicyEffect = 'allow' | 'deny';
+export type PolicyMode = 'enforce' | 'dry-run';
 
 export interface Policy {
   id: string;
   source: string;
   destination: string;
-  /** Allowed HTTP methods (upper-case). */
+  /** Allowed (or, for effect=deny, matched) HTTP methods (upper-case). */
   methods: string[];
-  /** Path prefixes that are allowed. Empty = every path (except denied ones). */
+  /** Path prefixes that are allowed/matched. Empty = every path (except denied ones). */
   allowPaths?: string[];
   /** Path prefixes that are ALWAYS refused, even if allowPaths matches. */
   denyPaths?: string[];
-  /** If set, the call is only allowed inside these UTC hours [start, end). */
+  /** If set, the policy only applies inside these UTC hours [start, end). */
   hoursUtc?: { start: number; end: number };
+  effect?: PolicyEffect;
+  priority?: number;
+  mode?: PolicyMode;
   description: string;
 }
 
 export type PolicyReason =
   | 'ALLOWED'
   | 'NO_POLICY'
+  | 'EXPLICIT_DENY'
   | 'METHOD_NOT_ALLOWED'
   | 'PATH_DENIED'
   | 'PATH_NOT_ALLOWED'
@@ -36,26 +52,59 @@ export interface PolicyDecision {
   allowed: boolean;
   reason: PolicyReason;
   policyId?: string;
+  /**
+   * True when the request was DENIED but the responsible policy (or the whole
+   * engine) is in dry-run mode: the pipeline should log it and let it through.
+   */
+  dryRun?: boolean;
 }
 
 export class PolicyEngine {
   private policies = new Map<string, Policy>();
-  /** Index by "source->destination" so evaluation is a single Map lookup. */
+  /** Index by "source->destination", pre-sorted, so evaluation is one Map lookup. */
   private byPair = new Map<string, Policy[]>();
+  private globalDryRun = false;
 
   constructor(
     initial: Policy[] = [],
     private readonly clock: () => number = Date.now,
   ) {
-    initial.forEach((p) => this.add(p));
+    this.replaceAll(initial);
   }
 
+  /** Add one policy (used by tests and the admin API). */
   add(policy: Policy): void {
-    this.policies.set(policy.id, policy);
-    const key = `${policy.source}->${policy.destination}`;
-    const list = this.byPair.get(key) ?? [];
-    list.push(policy);
-    this.byPair.set(key, list);
+    this.replaceAll([...this.policies.values(), policy]);
+  }
+
+  /**
+   * Atomically swap the whole policy set. The new index is built completely
+   * BEFORE it replaces the old one, so a concurrent evaluate() never sees a
+   * half-loaded state (JS is single-threaded, but evaluate() is called between
+   * awaits — this keeps the swap a single synchronous assignment).
+   */
+  replaceAll(policies: Policy[]): void {
+    const nextPolicies = new Map<string, Policy>();
+    const nextByPair = new Map<string, Policy[]>();
+    for (const p of policies) {
+      nextPolicies.set(p.id, p);
+      const key = `${p.source}->${p.destination}`;
+      const list = nextByPair.get(key) ?? [];
+      list.push(p);
+      nextByPair.set(key, list);
+    }
+    for (const list of nextByPair.values()) list.sort(compareForEvaluation);
+    this.policies = nextPolicies;
+    this.byPair = nextByPair;
+  }
+
+  /** Global dry-run: every denial becomes "would block" (safe rollout of the whole policy set). */
+  setDryRun(enabled: boolean): void {
+    this.globalDryRun = enabled;
+  }
+
+  get dryRun(): boolean {
+    return this.globalDryRun;
   }
 
   list(): Policy[] {
@@ -64,33 +113,60 @@ export class PolicyEngine {
 
   evaluate(source: string, destination: string, method: string, path: string): PolicyDecision {
     const candidates = this.byPair.get(`${source}->${destination}`);
-    if (!candidates || candidates.length === 0) return { allowed: false, reason: 'NO_POLICY' };
+    if (!candidates || candidates.length === 0) {
+      return { allowed: false, reason: 'NO_POLICY', dryRun: this.globalDryRun };
+    }
+
+    const isDry = (p: Policy) => this.globalDryRun || p.mode === 'dry-run';
+    const upperMethod = method.toUpperCase();
 
     // Remember the "closest" failure so the error message is as specific as possible.
-    let best: PolicyDecision = { allowed: false, reason: 'METHOD_NOT_ALLOWED' };
+    let best: PolicyDecision = { allowed: false, reason: 'METHOD_NOT_ALLOWED', dryRun: isDry(candidates[0]) };
 
     for (const p of candidates) {
-      if (!p.methods.includes(method.toUpperCase())) continue;
+      if (!p.methods.includes(upperMethod)) continue;
+
+      const inWindow = this.inTimeWindow(p);
+      const pathMatches = !p.allowPaths || p.allowPaths.length === 0 || p.allowPaths.some((prefix) => path.startsWith(prefix));
+
+      if (p.effect === 'deny') {
+        // An explicit deny applies only when everything it describes matches.
+        if (pathMatches && inWindow) return { allowed: false, reason: 'EXPLICIT_DENY', policyId: p.id, dryRun: isDry(p) };
+        continue;
+      }
 
       if (p.denyPaths?.some((prefix) => path.startsWith(prefix))) {
-        best = { allowed: false, reason: 'PATH_DENIED', policyId: p.id };
+        best = { allowed: false, reason: 'PATH_DENIED', policyId: p.id, dryRun: isDry(p) };
         continue;
       }
-      if (p.allowPaths && p.allowPaths.length > 0 && !p.allowPaths.some((prefix) => path.startsWith(prefix))) {
-        best = { allowed: false, reason: 'PATH_NOT_ALLOWED', policyId: p.id };
+      if (!pathMatches) {
+        best = { allowed: false, reason: 'PATH_NOT_ALLOWED', policyId: p.id, dryRun: isDry(p) };
         continue;
       }
-      if (p.hoursUtc) {
-        const hour = new Date(this.clock()).getUTCHours();
-        if (hour < p.hoursUtc.start || hour >= p.hoursUtc.end) {
-          best = { allowed: false, reason: 'OUTSIDE_TIME_WINDOW', policyId: p.id };
-          continue;
-        }
+      if (!inWindow) {
+        best = { allowed: false, reason: 'OUTSIDE_TIME_WINDOW', policyId: p.id, dryRun: isDry(p) };
+        continue;
       }
       return { allowed: true, reason: 'ALLOWED', policyId: p.id };
     }
     return best;
   }
+
+  private inTimeWindow(p: Policy): boolean {
+    if (!p.hoursUtc) return true;
+    const hour = new Date(this.clock()).getUTCHours();
+    return hour >= p.hoursUtc.start && hour < p.hoursUtc.end;
+  }
+}
+
+/** Higher priority first; at equal priority deny before allow; then by id for determinism. */
+function compareForEvaluation(a: Policy, b: Policy): number {
+  const byPriority = (b.priority ?? 0) - (a.priority ?? 0);
+  if (byPriority !== 0) return byPriority;
+  const aDeny = a.effect === 'deny' ? 0 : 1;
+  const bDeny = b.effect === 'deny' ? 0 : 1;
+  if (aDeny !== bDeny) return aDeny - bDeny;
+  return a.id.localeCompare(b.id);
 }
 
 /**
@@ -100,6 +176,8 @@ export class PolicyEngine {
  *   frontend ──► orders ──► payments ──► database
  *       │           └──────► users ◄────── auth
  *       └──────► auth
+ *
+ * The same policies ship as `policies/default.json`; a test keeps the two in sync.
  */
 export const DEFAULT_POLICIES: Policy[] = [
   { id: 'frontend-to-orders', source: 'frontend-service', destination: 'orders-service', methods: ['GET', 'POST'], allowPaths: ['/orders'], description: 'UI may list and create orders' },

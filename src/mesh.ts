@@ -5,6 +5,8 @@
  * an isolated mesh with a fake clock, while production uses the real one.
  * (Dependency injection without a framework: just a function that returns objects.)
  */
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import { AuditLog } from './audit/auditLog.js';
 import type { MeshConfig } from './config.js';
 import { LateralMovementDetector } from './detection/lateralMovement.js';
@@ -13,6 +15,7 @@ import { EventBus } from './observability/events.js';
 import { MetricsCollector } from './observability/metrics.js';
 import { SecurityPipeline } from './pipeline/pipeline.js';
 import { DEFAULT_POLICIES, PolicyEngine, type Policy } from './policy/policyEngine.js';
+import { PolicyStore } from './policy/policyStore.js';
 import { AnomalyEngine } from './risk/anomaly.js';
 import { RiskEngine } from './risk/riskEngine.js';
 import { QuarantineService } from './security/quarantine.js';
@@ -40,7 +43,14 @@ export function createMesh(config: MeshConfig, opts: MeshOptions = {}) {
     { audience: config.audience, maxLifetimeSec: config.maxTokenLifetimeSec, clockToleranceSec: config.clockToleranceSec },
     clock,
   );
-  const policies = new PolicyEngine(opts.policies ?? DEFAULT_POLICIES, clock);
+  const policies = new PolicyEngine([], clock);
+
+  // Where do policies come from? Priority: explicit list (tests) > JSON file > built-in defaults.
+  const policyFile = path.resolve(config.policyFile);
+  const useFile = opts.policies === undefined && existsSync(policyFile);
+  const policyStore = new PolicyStore(policies, useFile ? policyFile : undefined, config.dryRun, clock);
+  if (useFile) policyStore.loadInitial(); // throws on an invalid file: never start unprotected
+  else policyStore.useInline(opts.policies ?? DEFAULT_POLICIES);
   const quarantine = new QuarantineService(config.quarantineMs, clock);
   const audit = new AuditLog(5000, clock);
   const metrics = new MetricsCollector(clock);
@@ -64,7 +74,7 @@ export function createMesh(config: MeshConfig, opts: MeshOptions = {}) {
     bus,
   });
 
-  return { config, clock, registry, jtiStore, verifier, policies, quarantine, risk, audit, metrics, bus, pipeline };
+  return { config, clock, registry, jtiStore, verifier, policies, policyStore, quarantine, risk, audit, metrics, bus, pipeline };
 }
 
 export type Mesh = ReturnType<typeof createMesh>;

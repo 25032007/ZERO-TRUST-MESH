@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "dryRun": false,
+  "policies": [
+    {
+      "id": "frontend-to-orders",
+      "source": "frontend-service",
+      "destination": "orders-service",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "allowPaths": [
+        "/orders"
+      ],
+      "description": "UI may list and create orders"
+    },
+    {
+      "id": "frontend-to-auth",
+      "source": "frontend-service",
+      "destination": "auth-service",
+      "methods": [
+        "POST"
+      ],
+      "allowPaths": [
+        "/auth"
+      ],
+      "description": "UI may log users in"
+    },
+    {
+      "id": "orders-to-payments",
+      "source": "orders-service",
+      "destination": "payments-service",
+      "methods": [
+        "POST"
+      ],
+      "allowPaths": [
+        "/payments"
+      ],
+      "description": "Orders may request a charge"
+    },
+    {
+      "id": "orders-to-users",
+      "source": "orders-service",
+      "destination": "users-service",
+      "methods": [
+        "GET"
+      ],
+      "allowPaths": [
+        "/users"
+      ],
+      "description": "Orders may read user profiles"
+    },
+    {
+      "id": "payments-to-database",
+      "source": "payments-service",
+      "destination": "database-service",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "allowPaths": [
+        "/database"
+      ],
+      "denyPaths": [
+        "/database/admin"
+      ],
+      "description": "Only payments may reach the database (never its /admin path)"
+    },
+    {
+      "id": "auth-to-users",
+      "source": "auth-service",
+      "destination": "users-service",
+      "methods": [
+        "GET"
+      ],
+      "allowPaths": [
+        "/users"
+      ],
+      "description": "Auth looks up user records"
+    }
+  ],
+  "allowedWorkflows": []
+}

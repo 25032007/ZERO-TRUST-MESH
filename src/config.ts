@@ -17,6 +17,14 @@ export interface MeshConfig {
   /** When true, read-only dashboard routes and the simulator need no key. */
   publicDashboard: boolean;
 
+  // ── Policy as code ───────────────────────────────────────────────────────
+  /** JSON policy file (relative to the working directory). Falls back to built-in defaults if absent. */
+  policyFile: string;
+  /** Reload the policy file automatically when it changes on disk. */
+  policyWatch: boolean;
+  /** Global dry-run: log "would have blocked" for policy denials instead of blocking. */
+  dryRun: boolean;
+
   // ── Token rules ──────────────────────────────────────────────────────────
   /** Every token must be addressed to this audience (the mesh itself). */
   audience: string;
@@ -108,6 +116,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): MeshConfig {
     adminApiKey: suppliedKey ?? randomBytes(16).toString('hex'),
     adminKeyGenerated: suppliedKey === undefined,
     publicDashboard: (env.PUBLIC_DASHBOARD ?? 'true') !== 'false',
+
+    policyFile: env.POLICY_FILE && env.POLICY_FILE.length > 0 ? env.POLICY_FILE : 'policies/default.json',
+    policyWatch: (env.POLICY_WATCH ?? 'true') !== 'false',
+    dryRun: env.DRY_RUN === 'true',
 
     audience: 'zero-trust-mesh',
     maxTokenLifetimeSec: num(env, 'TOKEN_MAX_LIFETIME_SEC', 900),

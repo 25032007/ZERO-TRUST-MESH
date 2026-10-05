@@ -35,6 +35,7 @@ import { levelFor, type RiskEngine } from '../risk/riskEngine.js';
 import type { QuarantineService } from '../security/quarantine.js';
 import type { RateLimiter } from '../security/rateLimiter.js';
 import type { TokenVerifier } from '../token/tokenVerifier.js';
+import type { ThreatIntelligence } from '../threat/threatIntelligence.js';
 import type { Decision, PipelineInput, PipelineResult, RiskFactor, StageTrace } from '../types.js';
 
 export interface PipelineDeps {
@@ -56,6 +57,8 @@ export interface PipelineDeps {
   audit: AuditLog;
   metrics: MetricsCollector;
   bus: EventBus;
+  /** Additive observer of completed results; never participates in enforcement. */
+  threats: ThreatIntelligence;
 }
 
 /** Shape of a verdict before bookkeeping (timing, audit, metrics) is attached. */
@@ -118,6 +121,13 @@ export class SecurityPipeline {
       if (dryRunViolation) this.d.metrics.recordDryRunViolation();
       this.d.metrics.record(result.decision, result.durationMs);
       this.d.bus.publishDecision(result);
+      // Threat contracts are observational. A future enrichment bug must never
+      // change the already-finalised security verdict or interrupt the proxy.
+      try {
+        this.d.threats.observe(result);
+      } catch {
+        // No-op by design: audit, metrics, and the decision event were recorded first.
+      }
       return result;
     };
 

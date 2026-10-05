@@ -1,87 +1,809 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Zero-Trust Mesh · Security Operations</title>
+
+<!-- Theme init: runs before CSS paint to prevent flash -->
+<script>
+(function(){
+  var s=localStorage.getItem('zt-theme');
+  document.documentElement.setAttribute('data-theme',
+    (s==='light'||s==='dark')?s:
+    (window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')
+  );
+})();
+</script>
+
 <style>
-  /* Colour tokens: light by default, dark when the OS asks for it. */
-  :root { --bg:#f6f7f9; --card:#fff; --text:#16181d; --muted:#6a7280; --line:#e3e6eb;
-          --allow:#1b8a4b; --monitor:#b7791f; --step:#c05621; --block:#c0392b; --accent:#3b5bdb; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg:#0f1115; --card:#181b21; --text:#e8eaee; --muted:#8b93a1; --line:#2a2e37;
-            --allow:#4cc380; --monitor:#e0b04a; --step:#ee8f4f; --block:#ef6a5b; --accent:#7c93ff; } }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
-  header { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--line); background:var(--card); }
-  h1 { font-size:17px; margin:0; } h2 { font-size:14px; margin:0 0 10px; }
-  .sub { color:var(--muted); font-size:12px; }
-  main { display:grid; gap:14px; padding:16px 20px; grid-template-columns:repeat(auto-fit,minmax(min(100%, 340px),1fr)); }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; min-width:0; }
-  .wide { grid-column:1/-1; }
-  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:10px; }
-  .stat b { display:block; font-size:22px; } .stat span { color:var(--muted); font-size:12px; }
-  button { font:inherit; border:1px solid var(--line); background:var(--card); color:var(--text); border-radius:7px; padding:5px 10px; cursor:pointer; }
-  button:hover { border-color:var(--accent); } button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
-  input { font:inherit; border:1px solid var(--line); background:var(--bg); color:var(--text); border-radius:7px; padding:5px 8px; }
-  .pill { display:inline-block; padding:1px 8px; border-radius:99px; font-size:11px; font-weight:600; color:#fff; white-space:nowrap; }
-  .ALLOW{background:var(--allow)} .MONITOR{background:var(--monitor)} .STEP_UP_AUTH{background:var(--step)} .BLOCK{background:var(--block)}
-  .ok{color:var(--allow)} .bad{color:var(--block)}
-  .scroll { overflow-x:auto; } table { width:100%; border-collapse:collapse; font-size:12.5px; }
-  th,td { text-align:left; padding:5px 8px; border-bottom:1px solid var(--line); vertical-align:top; } th { color:var(--muted); font-weight:600; }
-  .scn { padding:8px 0; border-bottom:1px solid var(--line); } .scn:last-child { border:0; }
-  .scn .row { display:flex; gap:8px; justify-content:space-between; align-items:center; }
-  .scn small { color:var(--muted); display:block; } .steps { margin:6px 0 0; font-size:12px; }
-  .feed { max-height:340px; overflow-y:auto; overflow-x:hidden; font:12px ui-monospace,Menlo,Consolas,monospace; }
-  .feed div { padding:3px 0; border-bottom:1px dashed var(--line); word-break: break-all; } .t { color:var(--muted); }
-  code { font:12px ui-monospace,Menlo,Consolas,monospace; word-break: break-all; }
+/* =====================================================
+   DESIGN TOKENS — Light Mode (Cream / Forest)
+   ===================================================== */
+:root {
+  --bg:               #F4F0E7;
+  --surface:          #FFFFFF;
+  --surface-elevated: #F4F0E7;
+  --text-primary:     #18251F;
+  --text-secondary:   #667067;
+  --muted:            #92978F;
+  --border:           #E4DFD2;
+  --shadow-sm:        0 1px 3px rgba(0,0,0,0.06);
+
+  /* Sidebar — always dark forest */
+  --sidebar-bg:           #26372E;
+  --sidebar-text:         #F1EEE6;
+  --sidebar-label:        rgba(241,238,230,0.52);
+  --sidebar-active-bg:    rgba(198,146,75,0.13);
+  --sidebar-active-text:  #C6924B;
+  --sidebar-hover-bg:     rgba(255,255,255,0.05);
+  --sidebar-divider:      rgba(255,255,255,0.07);
+  --sidebar-border-right: none;
+  --sidebar-input-bg:     rgba(0,0,0,0.22);
+  --sidebar-input-border: rgba(255,255,255,0.13);
+
+  --code-bg:          #EEE9DE;
+  --code-border:      #D9D3C7;
+  --code-text:        #18251F;
+  --table-header-bg:  #F4F0E7;
+
+  --btn-primary-bg:    #26372E;
+  --btn-primary-text:  #F1EEE6;
+  --btn-primary-hover: #364D42;
+  --btn-secondary-bg:  #FFFFFF;
+  --btn-secondary-text:#18251F;
+  --btn-secondary-hover:#F4F0E7;
+
+  --allow:      #527A5B;
+  --info:       #4A8FA3;
+  --warning:    #C6924B;
+  --high-risk:  #D2693A;
+  --block:      #A63D40;
+
+  --allow-bg:   #527A5B;
+  --info-bg:    #4A8FA3;
+  --warning-bg: #9E6C2A;
+  --block-bg:   #A63D40;
+
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace;
+}
+
+/* =====================================================
+   DESIGN TOKENS — Dark Mode (Deep Forest)
+   ===================================================== */
+[data-theme="dark"] {
+  --bg:               #101512;
+  --surface:          #18201C;
+  --surface-elevated: #202A24;
+  --text-primary:     #F1EEE6;
+  --text-secondary:   #A9B1AA;
+  --muted:            #636B60;
+  --border:           #2A352F;
+  --shadow-sm:        0 1px 4px rgba(0,0,0,0.45);
+
+  --sidebar-bg:           #101512;
+  --sidebar-text:         #F1EEE6;
+  --sidebar-label:        rgba(241,238,230,0.40);
+  --sidebar-active-bg:    rgba(216,173,92,0.13);
+  --sidebar-active-text:  #D8AD5C;
+  --sidebar-hover-bg:     rgba(255,255,255,0.04);
+  --sidebar-divider:      rgba(255,255,255,0.06);
+  --sidebar-border-right: 1px solid #2A352F;
+  --sidebar-input-bg:     rgba(0,0,0,0.35);
+  --sidebar-input-border: rgba(255,255,255,0.10);
+
+  --code-bg:          #202A24;
+  --code-border:      #2A352F;
+  --code-text:        #F1EEE6;
+  --table-header-bg:  #202A24;
+
+  --btn-primary-bg:    #26372E;
+  --btn-primary-text:  #F1EEE6;
+  --btn-primary-hover: #364D42;
+  --btn-secondary-bg:  #18201C;
+  --btn-secondary-text:#F1EEE6;
+  --btn-secondary-hover:#202A24;
+
+  --allow:      #78A77F;
+  --info:       #6FB0C4;
+  --warning:    #D8AD5C;
+  --high-risk:  #E08A5C;
+  --block:      #D97B7D;
+
+  --allow-bg:   #3A6642;
+  --info-bg:    #2E5F72;
+  --warning-bg: #7A5C28;
+  --block-bg:   #7A2D30;
+}
+
+/* =====================================================
+   RESET & BASE
+   ===================================================== */
+*,*::before,*::after{box-sizing:border-box;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text-primary);
+  font:13.5px/1.5 var(--font);
+  display:flex;
+  height:100vh;
+  overflow:hidden;
+}
+
+/* =====================================================
+   LAYOUT
+   ===================================================== */
+.layout-sidebar{
+  width:240px;
+  background:var(--sidebar-bg);
+  color:var(--sidebar-text);
+  display:flex;
+  flex-direction:column;
+  flex-shrink:0;
+  border-right:var(--sidebar-border-right);
+}
+.layout-main{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  min-width:0;
+}
+
+/* =====================================================
+   SIDEBAR
+   ===================================================== */
+.sidebar-header{
+  padding:22px 20px 18px;
+  border-bottom:1px solid var(--sidebar-divider);
+}
+.sidebar-brand{
+  font-size:13px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:0.9px;
+  color:var(--sidebar-text);
+  margin-bottom:7px;
+}
+.sidebar-tagline{
+  font-size:11px;
+  line-height:1.55;
+  color:var(--sidebar-label);
+}
+.sidebar-nav{padding:10px;}
+.nav-item{
+  display:flex;
+  align-items:center;
+  padding:9px 10px 9px 13px;
+  border-radius:5px;
+  margin-bottom:2px;
+  cursor:pointer;
+  font-size:12.5px;
+  font-weight:500;
+  color:var(--sidebar-label);
+  transition:background 0.15s,color 0.15s;
+  border-left:3px solid transparent;
+}
+.nav-item:hover{background:var(--sidebar-hover-bg);color:var(--sidebar-text);}
+.nav-item.active{
+  background:var(--sidebar-active-bg);
+  color:var(--sidebar-active-text);
+  border-left-color:var(--sidebar-active-text);
+  font-weight:600;
+}
+.sidebar-bottom{
+  padding:14px 18px;
+  border-top:1px solid var(--sidebar-divider);
+  display:flex;
+  flex-direction:column;
+  gap:13px;
+}
+.status-indicator{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:11.5px;
+  font-weight:500;
+  color:var(--sidebar-label);
+}
+.status-dot{
+  width:7px;height:7px;
+  border-radius:50%;
+  background:var(--warning);
+  flex-shrink:0;
+  transition:background 0.3s;
+}
+.status-dot.live{background:var(--allow);}
+.sidebar-label{
+  display:block;
+  font-size:10px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:0.7px;
+  color:var(--sidebar-label);
+  margin-bottom:5px;
+}
+.sidebar-input{
+  font:inherit;
+  font-size:12px;
+  background:var(--sidebar-input-bg);
+  border:1px solid var(--sidebar-input-border);
+  color:var(--sidebar-text);
+  border-radius:5px;
+  padding:7px 10px;
+  width:100%;
+  transition:border-color 0.15s;
+}
+.sidebar-input:focus{outline:none;border-color:var(--sidebar-active-text);}
+.sidebar-input::placeholder{color:rgba(241,238,230,0.28);}
+.theme-toggle-btn{
+  font:600 11.5px/1 var(--font);
+  background:transparent;
+  border:1px solid rgba(255,255,255,0.11);
+  color:var(--sidebar-label);
+  border-radius:5px;
+  padding:7px 10px;
+  cursor:pointer;
+  text-align:left;
+  transition:background 0.15s,color 0.15s,border-color 0.15s;
+  width:100%;
+}
+.theme-toggle-btn:hover{background:var(--sidebar-hover-bg);color:var(--sidebar-text);border-color:rgba(255,255,255,0.2);}
+.theme-toggle-btn:focus-visible{outline:2px solid var(--sidebar-active-text);outline-offset:2px;}
+
+/* =====================================================
+   HEALTH BAR
+   ===================================================== */
+.health-bar{
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  padding:8px 32px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  font-size:11.5px;
+  gap:16px;
+  flex-shrink:0;
+}
+.health-bar-left{display:flex;align-items:center;gap:9px;flex-wrap:wrap;min-width:0;}
+.health-bar-right{display:flex;align-items:center;gap:14px;flex-shrink:0;}
+.health-dot{
+  width:7px;height:7px;
+  border-radius:50%;
+  display:inline-block;
+  flex-shrink:0;
+  transition:background 0.3s;
+}
+.health-dot--ok{background:var(--allow);}
+.health-dot--warn{background:var(--warning);}
+.health-dot--crit{background:var(--block);}
+.health-dot--muted{background:var(--muted);}
+.health-status-text{font-size:10.5px;font-weight:700;letter-spacing:0.7px;text-transform:uppercase;}
+.health-status-text.ok{color:var(--allow);}
+.health-status-text.warn{color:var(--warning);}
+.health-status-text.crit{color:var(--block);}
+.health-sep{color:var(--border);font-weight:400;user-select:none;}
+.health-item{color:var(--text-secondary);font-size:11.5px;}
+.health-dryrun{
+  display:none;
+  align-items:center;
+  gap:5px;
+  background:var(--warning-bg);
+  color:#fff;
+  font-size:10px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:0.6px;
+  padding:2px 8px;
+  border-radius:3px;
+}
+.health-ws{display:flex;align-items:center;gap:6px;color:var(--text-secondary);font-size:11px;}
+
+/* =====================================================
+   MAIN CONTENT
+   ===================================================== */
+.main-content{
+  flex:1;
+  overflow-y:auto;
+  padding:32px 36px;
+  display:flex;
+  flex-direction:column;
+  gap:36px;
+}
+
+/* =====================================================
+   SECTION STRUCTURE
+   ===================================================== */
+.section{min-width:0;}
+.section-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding-bottom:10px;
+  border-bottom:1px solid var(--border);
+  margin-bottom:16px;
+}
+h2{
+  font-size:10.5px;
+  font-weight:700;
+  margin:0;
+  text-transform:uppercase;
+  letter-spacing:0.8px;
+  color:var(--text-secondary);
+  flex:1;
+}
+.section-header-meta{
+  font-size:10.5px;
+  font-weight:700;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:0.5px;
+  flex-shrink:0;
+}
+.section-badge{
+  display:inline-flex;
+  align-items:center;
+  font-size:9px;font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:0.5px;
+  background:var(--allow-bg);
+  color:#fff;
+  padding:2px 6px;
+  border-radius:3px;
+  margin-left:8px;
+  vertical-align:middle;
+  position:relative;top:-1px;
+}
+
+/* =====================================================
+   GRIDS
+   ===================================================== */
+.grid-feed-sim{display:grid;grid-template-columns:1.3fr 0.7fr;gap:36px;align-items:start;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:start;}
+
+/* =====================================================
+   METRICS
+   ===================================================== */
+.metrics-container{display:flex;align-items:flex-start;gap:0;flex-wrap:wrap;}
+.metrics-loading{color:var(--muted);font-size:12px;padding:6px 0;}
+.metrics-block{display:flex;flex-direction:column;gap:9px;padding-right:28px;}
+.metrics-group-header{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);}
+.metrics-row{display:flex;gap:22px;align-items:flex-end;}
+.metrics-sep{width:1px;background:var(--border);align-self:stretch;min-height:44px;flex-shrink:0;margin:0 4px 0 0;}
+.metric-item{display:flex;flex-direction:column;gap:4px;min-width:52px;}
+.metric-value{font-size:22px;font-weight:600;line-height:1.1;color:var(--text-primary);font-variant-numeric:tabular-nums;}
+.metric-value-unit{font-size:12px;font-weight:500;color:var(--muted);margin-left:1px;}
+.metric-label{font-size:10px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.6px;}
+
+/* =====================================================
+   EVENT FEED
+   ===================================================== */
+.event-stream{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:6px;
+  box-shadow:var(--shadow-sm);
+  max-height:500px;
+  overflow-y:auto;
+}
+.feed-empty{padding:36px 24px;text-align:center;color:var(--muted);font-size:12.5px;}
+.event-row{
+  display:grid;
+  grid-template-columns:96px minmax(0,1fr) minmax(0,1.4fr) 68px;
+  border-bottom:1px solid var(--border);
+  border-left:2px solid transparent;
+  align-items:start;
+  font-size:12.5px;
+  transition:background 0.12s;
+  cursor:default;
+}
+.event-row:hover{background:var(--surface-elevated);}
+.event-row:last-child{border-bottom:none;}
+.event-col-decision{padding:10px 12px 10px 10px;display:flex;flex-direction:column;gap:5px;align-items:flex-start;}
+.event-col-service{padding:10px 10px 10px 0;display:flex;align-items:flex-start;min-width:0;}
+.event-col-detail{padding:10px 10px 10px 0;display:flex;flex-direction:column;gap:3px;min-width:0;}
+.event-col-risk{padding:10px 12px 10px 0;display:flex;align-items:flex-start;justify-content:flex-end;}
+.event-time{color:var(--muted);font-size:10.5px;font-variant-numeric:tabular-nums;}
+.event-service{font-family:var(--mono);font-size:11px;color:var(--text-primary);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;}
+.event-arrow{color:var(--muted);font-weight:400;}
+.event-reason{font-weight:700;color:var(--text-primary);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.event-path{font-family:var(--mono);font-size:11px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.risk-score{font-size:11.5px;font-weight:700;white-space:nowrap;}
+.risk-high{color:var(--block);}
+.risk-medium{color:var(--warning);}
+
+/* =====================================================
+   ATTACK SIMULATOR
+   ===================================================== */
+.sim-description{font-size:12px;color:var(--text-secondary);margin-bottom:14px;line-height:1.5;}
+.sim-summary{padding:9px 14px;border-radius:5px;font-size:12px;font-weight:700;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.4px;}
+.sim-summary--pass{background:rgba(82,122,91,0.11);color:var(--allow);border:1px solid rgba(82,122,91,0.22);}
+.sim-summary--fail{background:rgba(166,61,64,0.11);color:var(--block);border:1px solid rgba(166,61,64,0.22);}
+.scenarios-list{max-height:460px;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:6px;box-shadow:var(--shadow-sm);}
+.sim-group-label{
+  padding:7px 14px;
+  font-size:9.5px;font-weight:700;
+  text-transform:uppercase;letter-spacing:0.8px;
+  color:var(--muted);
+  background:var(--table-header-bg);
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:1;
+}
+.sim-scenario{border-bottom:1px solid var(--border);border-left:3px solid var(--muted);}
+.sim-scenario:last-child{border-bottom:none;}
+.sim-scenario--normal{border-left-color:var(--allow);}
+.sim-scenario--attack{border-left-color:var(--block);}
+.sim-row{display:flex;gap:10px;padding:11px 14px 11px 11px;justify-content:space-between;align-items:flex-start;}
+.sim-info{flex:1;min-width:0;}
+.sim-title{font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-primary);margin-bottom:3px;}
+.sim-desc{font-size:11.5px;color:var(--text-secondary);line-height:1.4;margin-bottom:4px;}
+.sim-expected{font-size:10.5px;color:var(--muted);font-family:var(--mono);}
+.sim-expected span{color:var(--text-secondary);font-weight:600;}
+.sim-result{padding:10px 14px 12px;border-top:1px dashed var(--border);background:var(--surface-elevated);font-size:12px;font-family:var(--mono);}
+.sim-result-verdict{font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;}
+.sim-step{display:flex;align-items:center;gap:8px;margin-top:5px;min-width:0;}
+.sim-step-label{color:var(--muted);font-size:10.5px;width:130px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sim-step-reason{flex:1;font-size:11px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sim-step-risk{font-weight:700;font-size:11px;width:55px;text-align:right;flex-shrink:0;}
+
+/* =====================================================
+   CONTAINMENT
+   ===================================================== */
+.audit-chain-bar{display:flex;align-items:center;gap:8px;padding:8px 0 14px;font-size:12px;font-weight:600;min-height:38px;}
+.containment-empty{display:flex;align-items:center;gap:8px;padding:12px 0;font-size:12px;font-weight:700;color:var(--allow);text-transform:uppercase;letter-spacing:0.4px;}
+
+/* =====================================================
+   RECOMMENDATIONS
+   ===================================================== */
+.recs-table{background:var(--surface);border:1px solid var(--border);border-radius:6px;box-shadow:var(--shadow-sm);overflow:hidden;}
+.recs-header-row{display:grid;grid-template-columns:86px 1fr;padding:8px 16px;background:var(--table-header-bg);border-bottom:1px solid var(--border);}
+.recs-header-cell{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-secondary);}
+.rec-row{display:grid;grid-template-columns:86px 1fr;padding:11px 16px;border-bottom:1px solid var(--border);align-items:start;transition:background 0.12s;}
+.rec-row:last-child{border-bottom:none;}
+.rec-row:hover{background:var(--surface-elevated);}
+.rec-type-cell{padding-right:10px;padding-top:1px;}
+.rec-finding{color:var(--text-primary);font-size:12.5px;line-height:1.45;}
+.recs-empty{padding:28px 16px;text-align:center;color:var(--muted);font-size:12.5px;line-height:1.5;}
+
+/* =====================================================
+   TABLES
+   ===================================================== */
+.table-container{background:var(--surface);border:1px solid var(--border);border-radius:6px;overflow-x:auto;box-shadow:var(--shadow-sm);}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{
+  text-align:left;
+  padding:10px 16px;
+  border-bottom:1px solid var(--border);
+  color:var(--text-secondary);
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:0.5px;
+  font-size:10px;
+  background:var(--table-header-bg);
+  white-space:nowrap;
+}
+td{text-align:left;padding:12px 16px;border-bottom:1px solid var(--border);vertical-align:top;}
+tr:last-child td{border-bottom:none;}
+tbody tr:hover td{background:var(--surface-elevated);}
+code{
+  font-family:var(--mono);
+  font-size:11.5px;
+  background:var(--code-bg);
+  color:var(--code-text);
+  padding:2px 6px;
+  border-radius:3px;
+  border:1px solid var(--code-border);
+}
+.deny-label{display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:var(--block);margin-bottom:3px;}
+.security-statement{margin-top:12px;font-size:11.5px;color:var(--text-secondary);line-height:1.4;}
+
+/* =====================================================
+   BADGES & STATUS
+   ===================================================== */
+.badge{
+  display:inline-flex;align-items:center;
+  padding:2px 7px;border-radius:3px;
+  font-size:9.5px;font-weight:700;line-height:1.35;
+  text-transform:uppercase;letter-spacing:0.5px;
+  white-space:nowrap;color:#fff;
+}
+.bg-ALLOW{background:var(--allow-bg);}
+.bg-MONITOR{background:var(--warning-bg);}
+.bg-STEP_UP_AUTH{background:var(--warning-bg);}
+.bg-BLOCK{background:var(--block-bg);}
+.bg-INFO{background:var(--info-bg);}
+
+.ALLOW{color:var(--allow)!important;}
+.MONITOR{color:var(--warning)!important;}
+.STEP_UP_AUTH{color:var(--warning)!important;}
+.BLOCK{color:var(--block)!important;}
+.INFO{color:var(--info)!important;}
+
+/* =====================================================
+   BUTTONS
+   ===================================================== */
+.btn{
+  font:700 11.5px/1 var(--font);
+  border-radius:5px;padding:7px 14px;
+  cursor:pointer;
+  transition:background 0.15s,border-color 0.15s,color 0.15s;
+  text-transform:uppercase;letter-spacing:0.5px;
+  white-space:nowrap;display:inline-flex;align-items:center;gap:5px;
+  border:1px solid transparent;text-decoration:none;
+}
+.btn:focus-visible{outline:2px solid var(--sidebar-active-text);outline-offset:2px;}
+.btn:disabled{opacity:0.42;cursor:not-allowed;pointer-events:none;}
+.btn-primary{background:var(--btn-primary-bg);color:var(--btn-primary-text);border-color:var(--btn-primary-bg);}
+.btn-primary:hover:not(:disabled){background:var(--btn-primary-hover);border-color:var(--btn-primary-hover);}
+.btn-secondary{background:var(--btn-secondary-bg);color:var(--btn-secondary-text);border-color:var(--border);}
+.btn-secondary:hover:not(:disabled){background:var(--btn-secondary-hover);border-color:var(--text-secondary);}
+.btn-sm{font-size:10.5px;padding:5px 10px;}
+
+/* Fallback bare button */
+button{font:700 11.5px/1 var(--font);background:var(--btn-secondary-bg);color:var(--btn-secondary-text);border:1px solid var(--border);border-radius:5px;padding:7px 14px;cursor:pointer;transition:background 0.15s,border-color 0.15s;text-transform:uppercase;letter-spacing:0.5px;}
+button:hover{background:var(--btn-secondary-hover);border-color:var(--text-secondary);}
+button:focus-visible{outline:2px solid var(--sidebar-active-text);outline-offset:2px;}
+
+/* =====================================================
+   UTILS
+   ===================================================== */
+.sub{color:var(--muted);font-size:11.5px;}
+.mono{font-family:var(--mono);}
+
+/* =====================================================
+   RESPONSIVE — ≤ 1279px Laptop
+   ===================================================== */
+@media (max-width:1279px){
+  .layout-sidebar{width:210px;}
+  .main-content{padding:26px 28px;gap:28px;}
+  .grid-feed-sim{grid-template-columns:1.2fr 0.8fr;gap:28px;}
+  .grid-2{gap:28px;}
+  .health-bar{padding:8px 28px;}
+}
+
+/* =====================================================
+   RESPONSIVE — ≤ 1023px Tablet (top rail)
+   ===================================================== */
+@media (max-width:1023px){
+  body{flex-direction:column;height:auto;overflow:auto;}
+  .layout-sidebar{width:100%;flex-direction:row;align-items:center;height:52px;flex-shrink:0;padding:0;}
+  .sidebar-header{padding:0 16px;border-bottom:none;border-right:1px solid var(--sidebar-divider);height:100%;display:flex;align-items:center;}
+  .sidebar-tagline{display:none;}
+  .sidebar-brand{margin-bottom:0;font-size:12px;white-space:nowrap;}
+  .sidebar-nav{display:none;}
+  .sidebar-bottom{flex-direction:row;padding:0 14px;border-top:none;border-left:1px solid var(--sidebar-divider);gap:14px;flex:1;align-items:center;height:100%;}
+  .admin-key-group{display:flex;align-items:center;gap:8px;flex:1;}
+  .admin-key-group .sidebar-label{display:none;}
+  .sidebar-input{max-width:160px;}
+  .layout-main{overflow:visible;}
+  .main-content{padding:20px;gap:24px;overflow-y:visible;}
+  .grid-feed-sim{grid-template-columns:1fr;gap:24px;}
+  .grid-2{grid-template-columns:1fr;gap:24px;}
+  .event-stream{max-height:360px;}
+  .scenarios-list{max-height:380px;}
+  .metrics-container{flex-wrap:wrap;gap:20px;}
+  .metrics-sep{display:none;}
+  .health-bar{padding:8px 20px;}
+}
+
+/* =====================================================
+   RESPONSIVE — ≤ 767px Mobile
+   ===================================================== */
+@media (max-width:767px){
+  .layout-sidebar{height:auto;flex-wrap:wrap;padding:10px 14px;gap:8px;}
+  .sidebar-header{border-right:none;height:auto;padding:0;}
+  .sidebar-bottom{border-left:none;height:auto;padding:0;flex-wrap:wrap;gap:10px;width:100%;}
+  .admin-key-group{flex-direction:column;align-items:flex-start;gap:4px;}
+  .admin-key-group .sidebar-label{display:block;}
+  .sidebar-input{max-width:200px;}
+  .main-content{padding:14px;gap:20px;}
+  .event-stream{max-height:320px;}
+  .scenarios-list{max-height:300px;}
+  .event-row{display:flex;flex-direction:column;gap:3px;padding:10px 10px 10px 12px;}
+  .event-col-decision{flex-direction:row;align-items:center;gap:8px;padding:0;}
+  .event-col-service{padding:0;}
+  .event-col-detail{padding:0;}
+  .event-col-risk{display:none;}
+  .table-container{overflow-x:auto;}
+  table{min-width:480px;}
+  .metrics-container{flex-direction:column;gap:16px;}
+  .metrics-sep{display:none;}
+  .health-bar{flex-direction:column;align-items:flex-start;gap:6px;padding:10px 14px;}
+  .health-bar-right{align-self:flex-start;}
+  .health-bar-left{flex-wrap:wrap;}
+  .grid-feed-sim,.grid-2{grid-template-columns:1fr;gap:20px;}
+}
 </style>
 </head>
 <body>
-<header>
-  <div><h1>Zero-Trust Mesh</h1><div class="sub">Every request authenticated, authorised and scored — nothing trusted by default.</div></div>
-  <div class="sub">Admin key (only if dashboard is private): <input id="key" type="password" size="14" placeholder="x-admin-key"> <span id="ws">● connecting</span></div>
-</header>
-<main>
-  <section class="card wide"><h2>Live metrics</h2>
-    <div class="stats" id="stats"></div></section>
 
-  <section class="card"><h2>Attack simulator <button class="primary" id="runAll">Run all</button></h2>
-    <div class="sub" style="margin-bottom:6px">These send real forged traffic to the real pipeline — nothing is pre-scripted.</div>
-    <div id="scenarios"></div></section>
+<aside class="layout-sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-brand">Zero-Trust Mesh</div>
+    <div class="sidebar-tagline">Every request authenticated, authorised and scored. Nothing trusted by default.</div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-item active">Security Operations</div>
+  </nav>
+  <div class="sidebar-bottom">
+    <div class="status-indicator">
+      <div id="ws-dot" class="status-dot"></div>
+      <span id="ws-text">Connecting…</span>
+    </div>
+    <div class="admin-key-group">
+      <label class="sidebar-label" for="key">Admin Key</label>
+      <input id="key" class="sidebar-input" type="password" placeholder="x-admin-key">
+    </div>
+    <button class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()">☾ Dark</button>
+  </div>
+</aside>
 
-  <section class="card"><h2>Live decision feed</h2><div class="feed" id="feed"></div></section>
+<div class="layout-main">
 
-  <section class="card"><h2>Policy status</h2>
-    <div class="stats" id="pol-stats"></div>
-  </section>
+  <div class="health-bar">
+    <div class="health-bar-left">
+      <span id="health-dot" class="health-dot health-dot--muted"></span>
+      <span id="health-status" class="health-status-text">INITIALIZING</span>
+      <span class="health-sep">·</span>
+      <span id="health-total" class="health-item">—</span>
+      <span class="health-sep">·</span>
+      <span id="health-chain" class="health-item">Checking integrity…</span>
+      <span class="health-sep">·</span>
+      <span id="health-policies" class="health-item">— policies</span>
+    </div>
+    <div class="health-bar-right">
+      <span id="health-dryrun" class="health-dryrun">⚠ DRY RUN</span>
+      <span class="health-ws">
+        <span id="health-ws-dot" class="health-dot health-dot--muted"></span>
+        <span id="health-ws-text">Connecting…</span>
+      </span>
+    </div>
+  </div>
 
-  <section class="card"><h2>Identity &amp; keys</h2>
-    <div class="stats" id="id-stats"></div>
-  </section>
+  <div class="main-content">
 
-  <section class="card"><h2>Integrity &amp; containment</h2>
-    <p id="chain" style="margin:0 0 8px"></p>
-    <div class="scroll"><table id="quar"></table></div></section>
+    <section class="section">
+      <div class="section-header"><h2>System Telemetry</h2></div>
+      <div id="stats-container" class="metrics-container">
+        <div class="metrics-loading">Loading telemetry…</div>
+      </div>
+    </section>
 
-  <section class="card"><h2>Least-privilege recommendations</h2>
-    <div id="recs" class="scroll" style="max-height: 340px;"></div>
-  </section>
+    <div class="grid-feed-sim">
+      <section class="section">
+        <div class="section-header">
+          <h2>Live Decision Feed</h2>
+          <span class="section-header-meta" id="feed-count">0 events</span>
+        </div>
+        <div class="event-stream" id="feed">
+          <div class="feed-empty">Awaiting live traffic…</div>
+        </div>
+      </section>
 
-  <section class="card wide"><h2>Services &amp; policies (default deny)</h2>
-    <div class="scroll"><table id="policies"></table></div></section>
-</main>
+      <section class="section">
+        <div class="section-header">
+          <h2>Attack Simulator</h2>
+          <button class="btn btn-primary btn-sm" id="runAll">Run All</button>
+        </div>
+        <div class="sim-description">Executes forged traffic against the live evaluation pipeline.</div>
+        <div id="sim-summary" class="sim-summary" style="display:none;"></div>
+        <div id="scenarios" class="scenarios-list"></div>
+      </section>
+    </div>
+
+    <div class="grid-2">
+      <section class="section">
+        <div class="section-header"><h2>Containment &amp; Quarantine</h2></div>
+        <div id="audit-chain-bar" class="audit-chain-bar">
+          <div class="status-dot"></div>
+          <span style="color:var(--muted);">Checking audit chain…</span>
+        </div>
+        <div id="quar-container"></div>
+      </section>
+      <section class="section">
+        <div class="section-header"><h2>Least-Privilege Intelligence</h2></div>
+        <div id="recs"></div>
+      </section>
+    </div>
+
+    <section class="section">
+      <div class="section-header">
+        <h2>Services &amp; Policies <span class="section-badge">Default Deny</span></h2>
+      </div>
+      <div class="table-container">
+        <table id="policies"></table>
+      </div>
+      <div class="security-statement">
+        🔒 <strong>DEFAULT-DENY</strong> · Any service pair not explicitly listed above is blocked regardless of authentication.
+      </div>
+    </section>
+
+  </div>
+</div>
 
 <script>
-const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const keyHeader = () => ($('key').value ? { 'x-admin-key': $('key').value } : {});
-const api = (path, opts = {}) => fetch(path, { ...opts, headers: { ...keyHeader(), ...(opts.headers || {}) } }).then((r) => r.json());
-const pill = (d) => `<span class="pill ${esc(d)}">${esc(d)}</span>`;
+/* =====================================================
+   THEME SYSTEM
+   ===================================================== */
+function getTheme(){
+  var s=localStorage.getItem('zt-theme');
+  if(s==='light'||s==='dark')return s;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+}
+function setTheme(theme){
+  document.documentElement.setAttribute('data-theme',theme);
+  localStorage.setItem('zt-theme',theme);
+  var btn=document.getElementById('theme-toggle');
+  if(btn)btn.textContent=theme==='dark'?'☀ Light':'☾ Dark';
+}
+function toggleTheme(){
+  setTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark');
+}
+(function(){
+  var btn=document.getElementById('theme-toggle');
+  if(btn)btn.textContent=getTheme()==='dark'?'☀ Light':'☾ Dark';
+})();
 
-async function refreshMetrics() {
-  try {
-    const [m, v, q, ps, recs, jwks] = await Promise.all([
+/* =====================================================
+   UTILITIES (unchanged)
+   ===================================================== */
+const $=(id)=>document.getElementById(id);
+const esc=(s)=>String(s??'').replace(/[&<>"]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const keyHeader=()=>($('key').value?{'x-admin-key':$('key').value}:{});
+const api=(path,opts={})=>fetch(path,{...opts,headers:{...keyHeader(),...(opts.headers||{})}}).then((r)=>r.json());
+const badge=(decision)=>{
+  const cls='bg-'+decision;
+  return '<span class="badge '+cls+'">'+esc(decision).replace(/_/g,' ')+'</span>';
+};
+
+/* =====================================================
+   FEED COUNTER
+   ===================================================== */
+let feedEventCount=0;
+function updateFeedCount(){
+  const el=$('feed-count');
+  if(el)el.textContent=feedEventCount+(feedEventCount===1?' event':' events');
+}
+
+/* =====================================================
+   HEALTH BAR (UI-only, driven by existing API data)
+   ===================================================== */
+function updateHealthBar(m,v,ps){
+  const chainOk=v.valid;
+  const hasBlocks=m.byDecision&&(m.byDecision.BLOCK||0)>0;
+  const dryRun=ps&&!ps.error&&ps.dryRun;
+  let dotClass,statusClass,statusText;
+  if(!chainOk){dotClass='health-dot--crit';statusClass='crit';statusText='INTEGRITY COMPROMISED';}
+  else if(hasBlocks){dotClass='health-dot--warn';statusClass='warn';statusText='THREATS DETECTED';}
+  else{dotClass='health-dot--ok';statusClass='ok';statusText='OPERATIONAL';}
+  const dot=$('health-dot');
+  const statusEl=$('health-status');
+  if(dot)dot.className='health-dot '+dotClass;
+  if(statusEl){statusEl.className='health-status-text '+statusClass;statusEl.textContent=statusText;}
+  const totalEl=$('health-total');
+  if(totalEl)totalEl.textContent=(m.total||0).toLocaleString()+' evaluated';
+  const chainEl=$('health-chain');
+  if(chainEl){
+    chainEl.textContent=chainOk
+      ?'Audit chain intact ('+v.checked+' entries)'
+      :'⚠ Integrity broken at #'+v.brokenAtSeq;
+    chainEl.style.color=chainOk?'':'var(--block)';
+    chainEl.style.fontWeight=chainOk?'':'700';
+  }
+  const polEl=$('health-policies');
+  if(polEl)polEl.textContent=(ps&&!ps.error?ps.policyCount:'—')+' policies';
+  const dryEl=$('health-dryrun');
+  if(dryEl)dryEl.style.display=dryRun?'inline-flex':'none';
+}
+
+/* =====================================================
+   REFRESH METRICS (same API calls, updated UI rendering)
+   ===================================================== */
+async function refreshMetrics(){
+  try{
+    const [m,v,q,ps,recs,jwks]=await Promise.all([
       api('/api/metrics'),
       api('/api/audit/verify'),
       api('/api/quarantine'),
@@ -89,76 +811,272 @@ async function refreshMetrics() {
       api('/api/policies/recommendations'),
       api('/.well-known/jwks.json')
     ]);
-    if (m.error) return ($('stats').innerHTML = `<span class="bad">${esc(m.error)} — enter the admin key above</span>`);
-    const l = m.pipelineLatency;
-    $('stats').innerHTML = [
-      ['Total requests', m.total], ['Allowed', m.byDecision.ALLOW], ['Monitored', m.byDecision.MONITOR],
-      ['Step-up', m.byDecision.STEP_UP_AUTH], ['Blocked', m.byDecision.BLOCK],
-      ['Req / min', m.requestsPerMinute], ['Pipeline p50', l.p50Ms + ' ms'], ['Pipeline p99', l.p99Ms + ' ms'],
-      ['Dry-run violations', m.dryRunViolations]
-    ].map(([k, val]) => `<div class="stat"><b>${esc(val)}</b><span>${k}</span></div>`).join('');
 
-    $('chain').innerHTML = v.valid ? `<span class="ok">✔ Audit chain intact</span> <span class="sub">(${v.checked} entries verified)</span>` : `<span class="bad">✖ Audit chain BROKEN at #${v.brokenAtSeq}</span>`;
-    $('quar').innerHTML = '<tr><th>Quarantined service</th><th>Reason</th><th>Until</th></tr>' + (q.length ? q.map((e) => `<tr><td>${esc(e.serviceId)}</td><td>${esc(e.reason)}</td><td>${new Date(e.until).toLocaleTimeString()}</td></tr>`).join('') : '<tr><td colspan="3" class="sub">No service is quarantined</td></tr>');
-
-    if (ps && !ps.error) {
-      $('pol-stats').innerHTML = [
-        ['Active version', ps.version ? ps.version.substring(0,8) : 'none'], ['Policies', ps.policyCount],
-        ['Dry run', ps.dryRun ? 'ON' : 'OFF'], ['Rejected reloads', ps.rejectedReloads]
-      ].map(([k, val]) => `<div class="stat"><b>${esc(val)}</b><span>${k}</span></div>`).join('');
+    if(m.error){
+      $('stats-container').innerHTML='<div class="sub" style="color:var(--block);">'+esc(m.error)+' — enter the admin key in the sidebar</div>';
+      return;
     }
 
-    if (recs && !recs.error) {
-      if (recs.recommendations && recs.recommendations.length > 0) {
-        $('recs').innerHTML = recs.recommendations.map(r => `<div class="scn"><div class="pill ${r.type==='INSUFFICIENT_DATA'?'MONITOR':'ALLOW'}" style="margin-bottom:4px;">${esc(r.type)}</div> <div>${esc(r.message)}</div></div>`).join('');
+    updateHealthBar(m,v,ps);
+
+    const l=m.pipelineLatency;
+    const dryRunBadge=(ps&&!ps.error&&ps.dryRun)
+      ?'<span class="badge bg-MONITOR">DRY RUN</span>'
+      :'<span style="font-size:13px;font-weight:600;color:var(--muted);">—</span>';
+
+    $('stats-container').innerHTML=
+      '<div class="metrics-block">'+
+        '<div class="metrics-group-header">Decisions</div>'+
+        '<div class="metrics-row">'+
+          '<div class="metric-item"><div class="metric-value ALLOW">'+(m.byDecision.ALLOW||0)+'</div><div class="metric-label">Allow</div></div>'+
+          '<div class="metric-item"><div class="metric-value STEP_UP_AUTH">'+(m.byDecision.STEP_UP_AUTH||0)+'</div><div class="metric-label">Step-Up</div></div>'+
+          '<div class="metric-item"><div class="metric-value BLOCK">'+(m.byDecision.BLOCK||0)+'</div><div class="metric-label">Block</div></div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="metrics-sep"></div>'+
+      '<div class="metrics-block">'+
+        '<div class="metrics-group-header">Operational</div>'+
+        '<div class="metrics-row">'+
+          '<div class="metric-item"><div class="metric-value">'+m.total+'</div><div class="metric-label">Total</div></div>'+
+          '<div class="metric-item"><div class="metric-value">'+m.requestsPerMinute+'</div><div class="metric-label">Req / Min</div></div>'+
+          '<div class="metric-item"><div class="metric-value">'+l.p50Ms+'<span class="metric-value-unit">ms</span></div><div class="metric-label">P50 Latency</div></div>'+
+          '<div class="metric-item"><div class="metric-value">'+l.p99Ms+'<span class="metric-value-unit">ms</span></div><div class="metric-label">P99 Latency</div></div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="metrics-sep"></div>'+
+      '<div class="metrics-block">'+
+        '<div class="metrics-group-header">Configuration</div>'+
+        '<div class="metrics-row">'+
+          '<div class="metric-item"><div class="metric-value">'+(ps&&!ps.error?ps.policyCount:'—')+'</div><div class="metric-label">Policies</div></div>'+
+          '<div class="metric-item"><div class="metric-value">'+(jwks&&!jwks.error&&jwks.keys?jwks.keys.length:'—')+'</div><div class="metric-label">Public Keys</div></div>'+
+          '<div class="metric-item" style="padding-top:2px;">'+dryRunBadge+'<div class="metric-label" style="margin-top:6px;">Dry Run</div></div>'+
+        '</div>'+
+      '</div>';
+
+    /* Audit chain bar */
+    const chainBar=$('audit-chain-bar');
+    if(chainBar){
+      if(v.valid){
+        chainBar.innerHTML='<div class="status-dot live"></div><span style="color:var(--allow);font-weight:700;">AUDIT CHAIN: INTACT</span><span class="sub" style="margin-left:4px;">'+v.checked+' entries verified</span>';
       } else {
-        $('recs').innerHTML = '<div class="sub">No recommendations at this time.</div>';
+        chainBar.innerHTML='<div class="status-dot" style="background:var(--block);"></div><span style="color:var(--block);font-weight:700;">AUDIT CHAIN: COMPROMISED</span><span class="sub" style="margin-left:4px;">Broken at #'+v.brokenAtSeq+'</span>';
       }
     }
 
-    if (jwks && !jwks.error) {
-      $('id-stats').innerHTML = [
-        ['Active public keys', jwks.keys ? jwks.keys.length : 0]
-      ].map(([k, val]) => `<div class="stat"><b>${esc(val)}</b><span>${k}</span></div>`).join('');
+    /* Quarantine */
+    if(q&&q.length){
+      $('quar-container').innerHTML=
+        '<div class="table-container"><table>'+
+        '<thead><tr><th>Quarantined Service</th><th>Reason</th><th>Until</th></tr></thead>'+
+        '<tbody>'+q.map((e)=>
+          '<tr>'+
+            '<td><strong style="font-family:var(--mono);font-size:12px;">'+esc(e.serviceId)+'</strong></td>'+
+            '<td><span class="badge bg-BLOCK">'+esc(e.reason).replace(/_/g,' ')+'</span></td>'+
+            '<td style="color:var(--text-secondary);font-size:12px;">'+new Date(e.until).toLocaleTimeString()+'</td>'+
+          '</tr>').join('')+
+        '</tbody></table></div>';
+    } else {
+      $('quar-container').innerHTML=
+        '<div class="containment-empty">'+
+          '<div class="status-dot live" style="flex-shrink:0;"></div>'+
+          'No Active Containment Actions'+
+        '</div>';
     }
-  } catch {}
+
+    /* Recommendations */
+    if(recs&&!recs.error){
+      if(recs.recommendations&&recs.recommendations.length>0){
+        $('recs').innerHTML=
+          '<div class="recs-table">'+
+          '<div class="recs-header-row"><div class="recs-header-cell">Type</div><div class="recs-header-cell">Finding</div></div>'+
+          recs.recommendations.map((r)=>
+            '<div class="rec-row">'+
+              '<div class="rec-type-cell">'+badge(r.type==='INSUFFICIENT_DATA'?'MONITOR':'INFO')+'</div>'+
+              '<div class="rec-finding">'+esc(r.message)+'</div>'+
+            '</div>').join('')+
+          '</div>';
+      } else {
+        $('recs').innerHTML=
+          '<div class="recs-table">'+
+            '<div class="recs-empty">No recommendations at this time. All observed traffic is within expected policy scope.</div>'+
+          '</div>';
+      }
+    }
+
+  } catch(e){ console.error(e); }
 }
 
-async function loadStatic() {
-  const [svc, pol] = await Promise.all([api('/api/services'), api('/api/policies')]);
-  if (!Array.isArray(pol)) return;
-  $('policies').innerHTML = '<tr><th>From → To</th><th>Methods</th><th>Paths</th></tr>' +
-    pol.map((p) => `<tr><td>${esc(p.source)} → ${esc(p.destination)}<small class="sub"><br>${esc(p.description)}</small></td><td>${esc(p.methods.join(', '))}</td><td><code>${esc((p.allowPaths || ['*']).join(' '))}</code>${p.denyPaths ? `<br>deny: <code>${esc(p.denyPaths.join(' '))}</code>` : ''}</td></tr>`).join('') +
-    `<tr><td colspan="3" class="sub">${svc.length} registered services. Any pair not listed above is denied.</td></tr>`;
-  const sc = await api('/api/simulator/scenarios');
-  $('scenarios').innerHTML = sc.map((s) => `<div class="scn" id="s-${s.id}"><div class="row"><div><b>${esc(s.title)}</b><small>${esc(s.description)}</small><small>Expected: ${esc(s.expected)}</small></div><button data-id="${s.id}">Run</button></div><div class="steps"></div></div>`).join('');
-  $('scenarios').querySelectorAll('button').forEach((b) => (b.onclick = () => run(b.dataset.id)));
+/* =====================================================
+   LOAD STATIC (same API calls, updated UI rendering)
+   ===================================================== */
+async function loadStatic(){
+  try{
+    const [svc,pol]=await Promise.all([api('/api/services'),api('/api/policies')]);
+    if(!Array.isArray(pol))return;
+
+    $('policies').innerHTML=
+      '<thead><tr>'+
+        '<th style="width:110px;">Policy ID</th>'+
+        '<th>Source → Destination</th>'+
+        '<th style="width:110px;">Methods</th>'+
+        '<th>Allowed Paths</th>'+
+      '</tr></thead><tbody>'+
+      pol.map((p)=>
+        '<tr>'+
+          '<td style="font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap;">'+esc(p.id||'—')+'</td>'+
+          '<td>'+
+            '<div style="font-weight:700;font-size:13px;margin-bottom:3px;font-family:var(--mono);">'+
+              esc(p.source)+' <span style="color:var(--muted);font-weight:400;">→</span> '+esc(p.destination)+
+            '</div>'+
+            '<div class="sub">'+esc(p.description)+'</div>'+
+          '</td>'+
+          '<td><code>'+esc(p.methods.join(', '))+'</code></td>'+
+          '<td>'+
+            '<code>'+esc((p.allowPaths||['*']).join(' '))+'</code>'+
+            (p.denyPaths?'<div style="margin-top:6px;"><span class="deny-label">Deny:</span> <code>'+esc(p.denyPaths.join(' '))+'</code></div>':'')+
+          '</td>'+
+        '</tr>').join('')+
+      '<tr><td colspan="4" style="text-align:center;color:var(--muted);font-size:11.5px;padding:11px 16px;">'+
+        svc.length+' registered services · Any unlisted pair is blocked'+
+      '</td></tr></tbody>';
+
+    const sc=await api('/api/simulator/scenarios');
+    let html='';
+    let attackHeaderAdded=false;
+    sc.forEach((s)=>{
+      const isNormal=s.id==='normal-traffic';
+      if(isNormal){html+='<div class="sim-group-label">Normal Traffic</div>';}
+      else if(!attackHeaderAdded){html+='<div class="sim-group-label">Attack Scenarios — executed against the live pipeline</div>';attackHeaderAdded=true;}
+      html+=
+        '<div class="sim-scenario '+(isNormal?'sim-scenario--normal':'sim-scenario--attack')+'" id="s-'+s.id+'">'+
+          '<div class="sim-row">'+
+            '<div class="sim-info">'+
+              '<div class="sim-title">'+esc(s.title)+'</div>'+
+              '<div class="sim-desc">'+esc(s.description)+'</div>'+
+              '<div class="sim-expected">Expected: <span>'+esc(s.expected).toUpperCase()+'</span></div>'+
+            '</div>'+
+            '<button class="btn btn-secondary btn-sm" data-id="'+s.id+'">Run</button>'+
+          '</div>'+
+          '<div class="sim-result" style="display:none;"></div>'+
+        '</div>';
+    });
+    $('scenarios').innerHTML=html;
+    $('scenarios').querySelectorAll('button[data-id]').forEach((b)=>(b.onclick=()=>run(b.dataset.id)));
+
+  } catch(e){ console.error(e); }
 }
 
-function render(r) {
-  const box = $('s-' + r.id).querySelector('.steps');
-  box.innerHTML = `<b class="${r.passed ? 'ok' : 'bad'}">${r.passed ? '✔ defence worked as expected' : '✖ UNEXPECTED RESULT'}</b>` +
-    r.steps.map((s) => `<div>${pill(s.decision)} <code>${esc(s.reason)}</code> risk ${s.riskScore ?? '-'} · HTTP ${s.httpStatus} <span class="sub">${esc(s.label)}</span></div>`).join('');
+/* =====================================================
+   RENDER SIM (same logic, updated UI rendering)
+   ===================================================== */
+function renderSim(r){
+  const box=$('s-'+r.id).querySelector('.sim-result');
+  box.style.display='block';
+  box.innerHTML=
+    '<div class="sim-result-verdict '+(r.passed?'ALLOW':'BLOCK')+'">'+(r.passed?'✔ Defence worked as expected':'✖ Unexpected Result')+'</div>'+
+    r.steps.map((s)=>
+      '<div class="sim-step">'+
+        '<span style="width:94px;flex-shrink:0;">'+badge(s.decision)+'</span>'+
+        '<span class="sim-step-label">'+esc(s.label)+'</span>'+
+        '<span class="sim-step-reason">'+esc(s.reason)+'</span>'+
+        (s.riskScore!=null&&s.riskScore>0?'<span class="sim-step-risk '+(s.riskScore>=50?'BLOCK':'MONITOR')+'">Risk '+s.riskScore+'</span>':'')+
+      '</div>').join('');
 }
-async function run(id) { render(await api('/api/simulator/' + id, { method: 'POST' })); refreshMetrics(); }
-$('runAll').onclick = async () => { (await api('/api/simulator/run-all', { method: 'POST' })).forEach(render); refreshMetrics(); };
 
-// Live feed over WebSocket (reconnects automatically).
-function connect() {
-  const url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws' + ($('key').value ? '?key=' + encodeURIComponent($('key').value) : '');
-  const ws = new WebSocket(url);
-  ws.onopen = () => ($('ws').textContent = '● live');
-  ws.onclose = () => { $('ws').textContent = '● reconnecting'; setTimeout(connect, 2000); };
-  ws.onmessage = (e) => {
-    const r = JSON.parse(e.data).data;
-    const div = document.createElement('div');
-    div.innerHTML = `<span class="t">${new Date(r.timestamp).toLocaleTimeString()}</span> ${pill(r.decision)} ${esc(r.source || '?')} → ${esc(r.destination || '?')} <code>${esc(r.method)} ${esc(r.path)}</code> ${esc(r.reason)} (risk ${r.riskScore})`;
+/* =====================================================
+   RUN (unchanged)
+   ===================================================== */
+async function run(id){renderSim(await api('/api/simulator/'+id,{method:'POST'}));refreshMetrics();}
+
+$('runAll').onclick=async()=>{
+  const results=await api('/api/simulator/run-all',{method:'POST'});
+  results.forEach(renderSim);
+  refreshMetrics();
+  const total=results.length;
+  const passed=results.filter((r)=>r.passed).length;
+  const failed=total-passed;
+  const summaryEl=$('sim-summary');
+  if(summaryEl){
+    summaryEl.style.display='block';
+    summaryEl.className='sim-summary '+(failed===0?'sim-summary--pass':'sim-summary--fail');
+    summaryEl.textContent=failed===0
+      ?'✔ '+passed+' of '+total+' scenarios passed'
+      :'✖ '+failed+' of '+total+' scenarios failed — review highlighted results';
+  }
+};
+
+/* =====================================================
+   WEBSOCKET (same logic, updated row HTML + feed counter)
+   ===================================================== */
+function connect(){
+  const url=(location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws'+
+    ($('key').value?'?key='+encodeURIComponent($('key').value):'');
+  const ws=new WebSocket(url);
+
+  ws.onopen=()=>{
+    $('ws-text').textContent='Live Feed Connected';
+    $('ws-dot').classList.add('live');
+    const hwDot=$('health-ws-dot');
+    const hwText=$('health-ws-text');
+    if(hwDot){hwDot.className='health-dot health-dot--ok';}
+    if(hwText)hwText.textContent='Feed Connected';
+  };
+
+  ws.onclose=()=>{
+    $('ws-text').textContent='Reconnecting…';
+    $('ws-dot').classList.remove('live');
+    const hwDot=$('health-ws-dot');
+    const hwText=$('health-ws-text');
+    if(hwDot){hwDot.className='health-dot health-dot--warn';}
+    if(hwText)hwText.textContent='Reconnecting…';
+    setTimeout(connect,2000);
+  };
+
+  ws.onmessage=(e)=>{
+    const r=JSON.parse(e.data).data;
+    const feedEmpty=$('feed').querySelector('.feed-empty');
+    if(feedEmpty)feedEmpty.remove();
+    feedEventCount++;
+    updateFeedCount();
+
+    let borderColor='transparent';
+    if(r.decision==='BLOCK')borderColor='var(--block)';
+    else if(r.decision==='STEP_UP_AUTH'||r.decision==='MONITOR')borderColor='var(--warning)';
+
+    const riskHtml=r.riskScore>0
+      ?'<span class="risk-score '+(r.riskScore>=50?'risk-high':'risk-medium')+'">Risk '+r.riskScore+'</span>'
+      :'';
+
+    const div=document.createElement('div');
+    div.className='event-row';
+    div.style.borderLeftColor=borderColor;
+    div.innerHTML=
+      '<div class="event-col-decision">'+
+        badge(r.decision)+
+        '<span class="event-time">'+new Date(r.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})+'</span>'+
+      '</div>'+
+      '<div class="event-col-service">'+
+        '<span class="event-service">'+esc(r.source||'Unknown')+'<span class="event-arrow"> → </span>'+esc(r.destination||'Unknown')+'</span>'+
+      '</div>'+
+      '<div class="event-col-detail">'+
+        '<span class="event-reason">'+esc(r.reason)+'</span>'+
+        '<span class="event-path">'+esc(r.method)+' '+esc(r.path)+'</span>'+
+      '</div>'+
+      '<div class="event-col-risk">'+riskHtml+'</div>';
+
     $('feed').prepend(div);
-    while ($('feed').children.length > 80) $('feed').lastChild.remove();
+    while($('feed').children.length>50)$('feed').lastChild.remove();
   };
 }
-$('key').addEventListener('change', () => location.reload());
-loadStatic(); refreshMetrics(); connect(); setInterval(refreshMetrics, 3000);
+
+/* =====================================================
+   INIT (unchanged)
+   ===================================================== */
+$('key').addEventListener('change',()=>location.reload());
+loadStatic();
+refreshMetrics();
+connect();
+setInterval(refreshMetrics,3000);
 </script>
 </body>
 </html>

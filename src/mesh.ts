@@ -23,6 +23,7 @@ import { QuarantineService } from './security/quarantine.js';
 import { RateLimiter } from './security/rateLimiter.js';
 import { MemoryJtiStore, type JtiStore } from './token/jtiStore.js';
 import { TokenVerifier } from './token/tokenVerifier.js';
+import { ThreatIntelligence } from './threat/threatIntelligence.js';
 
 export interface MeshOptions {
   clock?: () => number;
@@ -58,6 +59,7 @@ export function createMesh(config: MeshConfig, opts: MeshOptions = {}) {
   const bus = new EventBus();
   const risk = new RiskEngine(config);
   const usage = new UsageTracker(clock);
+  const threats = new ThreatIntelligence();
 
   const pipeline = new SecurityPipeline({
     config,
@@ -75,9 +77,10 @@ export function createMesh(config: MeshConfig, opts: MeshOptions = {}) {
     audit,
     metrics,
     bus,
+    threats,
   });
 
-  return { config, clock, registry, jtiStore, verifier, policies, policyStore, usage, quarantine, risk, audit, metrics, bus, pipeline };
+  return { config, clock, registry, jtiStore, verifier, policies, policyStore, usage, quarantine, risk, audit, metrics, bus, threats, pipeline };
 }
 
 export type Mesh = ReturnType<typeof createMesh>;

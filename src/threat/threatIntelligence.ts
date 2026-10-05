@@ -30,8 +30,18 @@ export class ThreatIntelligence {
     return this.observations.slice(Math.max(0, this.observations.length - limit)).reverse();
   }
 
-  /** Active correlated findings, newest first. Internal-only until the threat API phase. */
+  /** Active correlated findings, newest first. Read-only; safe to serve over the threat API. */
   findings(limit = 100) {
     return this.correlator.recent(limit);
+  }
+
+  /** Read-only detail for one active finding (finding + stored signals + evidence). */
+  findingDetail(findingId: string) {
+    return this.correlator.detail(findingId);
+  }
+
+  /** Read-only: all active findings sharing one correlation key (oldest first). */
+  findingsForCorrelation(correlationKey: string) {
+    return this.correlator.investigation(correlationKey);
   }
 }

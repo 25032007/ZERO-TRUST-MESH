@@ -7,6 +7,7 @@
  *   ANY  /api/proxy/<path>        the enforced entry point (needs a token)
  *   GET  /healthz                 liveness
  *   GET  /api/metrics|audit|...   read-only dashboard data
+ *   GET  /api/threats/...         read-only threat intelligence (Phase 4)
  *   POST /api/simulator/:id       run an attack scenario (demo)
  *   POST /admin/...               mutating operations (always need the admin key)
  *   ANY  /downstream/...          mock backends (only reachable via the proxy)
@@ -26,6 +27,7 @@ import { createMesh, type Mesh, type MeshOptions } from './mesh.js';
 import { attachWebSocket } from './observability/events.js';
 import { DEFAULT_RECOMMEND_OPTIONS, recommend } from './policy/recommend.js';
 import { listScenarios, runAll, runScenario, type SimContext } from './simulator/attacks.js';
+import { attackPathView, categoryBreakdown, investigationView, listFindings, toDetail, toSummary } from './threat/presenter.js';
 
 export interface App {
   server: Server;
@@ -165,6 +167,40 @@ export async function createApp(config: MeshConfig, meshOptions: MeshOptions = {
   });
   app.get('/api/audit/verify', dashboardAccess, (_req, res) => void res.json(mesh.audit.verify()));
   app.get('/api/audit/summary', dashboardAccess, (_req, res) => void res.json(mesh.audit.summary()));
+
+  // ── Threat intelligence (read-only exposure of existing correlator state) ──
+  // Every value is copied from stored findings; nothing is recalculated here.
+  app.get('/api/threats/findings', dashboardAccess, (req, res) => {
+    res.json(listFindings(mesh.threats.findings(5000), req.query));
+  });
+  app.get('/api/threats/findings/:findingId', dashboardAccess, (req, res) => {
+    const detail = mesh.threats.findingDetail(String(req.params.findingId));
+    if (!detail) {
+      res.status(404).json({ error: 'FINDING_NOT_FOUND' });
+      return;
+    }
+    res.json(toDetail(detail.finding, detail.signals, detail.evidence));
+  });
+  app.get('/api/threats/categories', dashboardAccess, (_req, res) => {
+    res.json(categoryBreakdown(mesh.threats.findings(5000)));
+  });
+  app.get('/api/threats/investigations/:correlationKey', dashboardAccess, (req, res) => {
+    const key = String(req.params.correlationKey);
+    const view = investigationView(key, mesh.threats.findingsForCorrelation(key));
+    if (!view) {
+      res.status(404).json({ error: 'INVESTIGATION_NOT_FOUND' });
+      return;
+    }
+    res.json(view);
+  });
+  app.get('/api/threats/attack-paths', dashboardAccess, (_req, res) => {
+    res.json(attackPathView(mesh.threats.findings(5000)));
+  });
+  // Smallest stable summary for header badges; same state, no extra logic.
+  app.get('/api/threats/summary', dashboardAccess, (_req, res) => {
+    const all = mesh.threats.findings(5000);
+    res.json({ totalActiveFindings: all.length, findings: all.slice(0, 5).map(toSummary) });
+  });
 
   // ── Simulator (demo) ──────────────────────────────────────────────────────
   app.get('/api/simulator/scenarios', dashboardAccess, (_req, res) => void res.json(listScenarios()));

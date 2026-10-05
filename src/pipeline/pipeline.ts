@@ -37,6 +37,7 @@ import type { RateLimiter } from '../security/rateLimiter.js';
 import type { TokenVerifier } from '../token/tokenVerifier.js';
 import type { ThreatIntelligence } from '../threat/threatIntelligence.js';
 import type { ThreatObservationContext } from '../threat/normalizer.js';
+import { toSummary as toThreatSummary } from '../threat/presenter.js';
 import type { Decision, PipelineInput, PipelineResult, RiskFactor, StageTrace } from '../types.js';
 
 export interface PipelineDeps {
@@ -126,7 +127,10 @@ export class SecurityPipeline {
       // Threat contracts are observational. A future enrichment bug must never
       // change the already-finalised security verdict or interrupt the proxy.
       try {
-        this.d.threats.observe(result, threatContext);
+        const observation = this.d.threats.observe(result, threatContext);
+        // Additive fan-out: one versioned event per correlated finding so the
+        // dashboard can upsert without polling. Summaries only (no recalculation).
+        for (const finding of observation.findings) this.d.bus.publishThreatFinding(toThreatSummary(finding));
       } catch {
         // No-op by design: audit, metrics, and the decision event were recorded first.
       }

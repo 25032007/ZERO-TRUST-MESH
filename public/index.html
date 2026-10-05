@@ -1114,6 +1114,36 @@ code{
 .decision-swatch.monitor{background:var(--warning);}
 .decision-swatch.stepup{background:var(--info);}
 .decision-swatch.block{background:var(--block);}
+/* Threat findings: severity is text + label, never color alone */
+.sev-CRITICAL{color:var(--block)!important;}
+.sev-HIGH{color:var(--high-risk)!important;}
+.sev-MEDIUM{color:var(--warning)!important;}
+.sev-LOW{color:var(--muted)!important;}
+.finding-row{
+  display:grid;
+  grid-template-columns:110px minmax(150px,1.2fr) minmax(140px,1fr) auto;
+  gap:6px 12px;align-items:center;
+  width:100%;text-align:left;background:transparent;
+  border:none;border-bottom:1px solid var(--border);
+  border-left:3px solid transparent;border-radius:0;
+  padding:9px 12px;cursor:pointer;
+  text-transform:none;letter-spacing:0;
+}
+.finding-row:hover{background:var(--surface-elevated);}
+.finding-row:focus-visible{outline:1px solid var(--sidebar-active-text);outline-offset:-2px;}
+.finding-row.selected{background:var(--surface-elevated);}
+.finding-row.sev-L{border-left-color:var(--muted);}
+.finding-row.sev-M{border-left-color:var(--warning);}
+.finding-row.sev-H{border-left-color:var(--high-risk);}
+.finding-row.sev-C{border-left-color:var(--block);}
+.finding-main{font:600 11.5px var(--mono);color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.finding-sub{font-size:10.5px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.finding-nums{display:flex;gap:10px;align-items:baseline;justify-content:flex-end;font-family:var(--mono);white-space:nowrap;}
+/* Attack path chain: ordered services from the correlator, rendered as-is */
+.path-chain{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font:600 11.5px var(--mono);color:var(--text-primary);}
+.path-hop{background:var(--code-bg);border:1px solid var(--code-border);border-radius:3px;padding:2px 7px;}
+.path-arrow{color:var(--muted);}
+.evidence-facts{font-family:var(--mono);font-size:10.5px;color:var(--text-secondary);word-break:break-word;}
 
 /* =====================================================
    BUTTONS
@@ -1450,7 +1480,7 @@ button:focus-visible{outline:1px solid var(--sidebar-active-text);outline-offset
                   <div class="attention-mark" aria-hidden="true">i</div>
                   <div>
                     <p class="attention-empty-title">Nothing needs review</p>
-                    <p class="attention-empty-body">Blocked, step-up, and monitored decisions from this session will surface here, highest risk first. Correlated threat findings will appear here once the intelligence contract is connected.</p>
+                    <p class="attention-empty-body">Blocked, step-up, and monitored decisions from this session will surface here, highest risk first. Correlated threat findings live in Threat Intelligence.</p>
                     <div class="data-boundary">Authoritative pipeline activity remains available in Live Operations</div>
                   </div>
                 </div>
@@ -1547,102 +1577,78 @@ button:focus-visible{outline:1px solid var(--sidebar-active-text);outline-offset
         <button class="view-tab" data-sub="paths" type="button">Attack Paths</button>
       </div>
 
-      <!-- Findings -->
+      <!-- Findings: live from GET /api/threats/findings -->
       <div class="sub-view active" id="intel-findings" role="tabpanel" aria-label="Threat findings">
-        <div class="intel-empty-state">
-          <span class="intel-empty-icon" aria-hidden="true">◆</span>
-          <h3 class="intel-state-title">Threat Findings — awaiting contract</h3>
-          <p class="intel-state-body">No active findings. When the backend findings contract is connected, each row here will be one correlated finding with its severity, confidence, category, evidence chain, and affected services.</p>
-          <ul class="intel-will-list">
-            <li><b>Severity</b> — how serious the threat is (backend-assessed, never derived from risk score)</li>
-            <li><b>Confidence</b> — strength of the evidence behind the finding</li>
-            <li><b>Evidence</b> — the pipeline events and signals that produced it</li>
-          </ul>
-          <div class="intel-contract-notice"><strong>Data boundary:</strong> No findings fabricated. Backend threat findings API not yet exposed. Pipeline risk remains authoritative in Live Operations.</div>
-        </div>
-
-        <div class="section-header" style="margin-top:24px;">
-          <h2 class="section-h">Expected finding record schema</h2>
-          <span class="section-meta">Architecture preview</span>
-        </div>
-        <div class="intel-schema-table">
-          <div class="intel-schema-header">Field</div>
-          <div class="intel-schema-header">Type</div>
-          <div class="intel-schema-header">Status</div>
-          <div class="intel-schema-row">
-            <span class="intel-schema-field">findingId</span>
-            <span class="intel-schema-type">string</span>
-            <span class="intel-schema-status">awaiting contract</span>
-          </div>
-          <div class="intel-schema-row">
-            <span class="intel-schema-field">severity</span>
-            <span class="intel-schema-type">enum</span>
-            <span class="intel-schema-status">awaiting contract</span>
-          </div>
-          <div class="intel-schema-row">
-            <span class="intel-schema-field">confidence</span>
-            <span class="intel-schema-type">number 0–1</span>
-            <span class="intel-schema-status">awaiting contract</span>
-          </div>
-          <div class="intel-schema-row">
-            <span class="intel-schema-field">category</span>
-            <span class="intel-schema-type">string</span>
-            <span class="intel-schema-status">awaiting contract</span>
-          </div>
-          <div class="intel-schema-row">
-            <span class="intel-schema-field">evidence</span>
-            <span class="intel-schema-type">array</span>
-            <span class="intel-schema-status">awaiting contract</span>
-          </div>
-          <div class="intel-schema-row">
-            <span class="intel-schema-field">affectedEntities</span>
-            <span class="intel-schema-type">array</span>
-            <span class="intel-schema-status">awaiting contract</span>
+        <div class="section-header">
+          <h2 class="section-h">Correlated findings</h2>
+          <div class="feed-toolbar">
+            <label class="visually-hidden" for="finding-category">Filter by category</label>
+            <select class="feed-filter" id="finding-category" aria-label="Filter findings by category">
+              <option value="">All categories</option>
+              <option value="IDENTITY_COMPROMISE">Identity compromise</option>
+              <option value="AUTHENTICATION_TOKEN_ABUSE">Token abuse</option>
+              <option value="AUTHORIZATION_POLICY_VIOLATION">Policy violation</option>
+              <option value="BEHAVIORAL_ANOMALY">Behavioral anomaly</option>
+              <option value="LATERAL_MOVEMENT">Lateral movement</option>
+              <option value="RECONNAISSANCE_PROBING">Recon probing</option>
+              <option value="REQUEST_PAYLOAD_ABUSE">Payload abuse</option>
+              <option value="SERVICE_GRAPH_ANOMALY">Graph anomaly</option>
+            </select>
+            <label class="visually-hidden" for="finding-severity">Filter by severity</label>
+            <select class="feed-filter" id="finding-severity" aria-label="Filter findings by severity">
+              <option value="">All severities</option>
+              <option value="CRITICAL">Critical</option>
+              <option value="HIGH">High</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="LOW">Low</option>
+            </select>
+            <span class="section-meta" id="findings-count">—</span>
           </div>
         </div>
+        <div class="decision-legend" aria-label="Finding field meanings">
+          <span class="decision-legend-item"><b>Severity</b>&nbsp;how serious the threat is (backend-assessed)</span>
+          <span class="decision-legend-item"><b>Confidence</b>&nbsp;strength of the evidence (0–100)</span>
+          <span class="decision-legend-item"><b>Risk</b>&nbsp;authoritative pipeline score, copied not computed</span>
+        </div>
+        <div id="findings-list"></div>
+        <div id="finding-detail" style="margin-top:20px;"></div>
       </div>
 
-      <!-- Investigations -->
+      <!-- Investigations: live from GET /api/threats/investigations/:key -->
       <div class="sub-view" id="intel-investigations" role="tabpanel" aria-label="Investigations">
-        <div class="intel-empty-state">
-          <span class="intel-empty-icon" aria-hidden="true">◇</span>
-          <h3 class="intel-state-title">Investigations — ready when findings arrive</h3>
-          <p class="intel-state-body">No active investigations. Each investigation will open from a finding and walk the analyst through evidence review, source correlation, timeline reconstruction, and disposition — all tied to the backend finding record.</p>
-          <ul class="intel-will-list">
-            <li><b>Evidence review</b> — signals and pipeline events behind the finding</li>
-            <li><b>Timeline</b> — chronological reconstruction of the activity</li>
-            <li><b>Disposition</b> — analyst outcome recorded against the finding</li>
-          </ul>
-          <div class="intel-contract-notice"><strong>Note:</strong> Single-event evidence is available now in Live Operations → Event investigation.</div>
+        <div class="section-header">
+          <h2 class="section-h">Investigation</h2>
+          <div class="feed-toolbar">
+            <label class="visually-hidden" for="inv-key">Correlation key</label>
+            <select class="feed-filter" id="inv-key" aria-label="Select correlation key" style="max-width:280px;"></select>
+            <span class="section-meta" id="inv-meta">—</span>
+          </div>
         </div>
+        <div id="investigation-detail"></div>
       </div>
 
-      <!-- Categories -->
+      <!-- Categories: live from GET /api/threats/categories -->
       <div class="sub-view" id="intel-categories" role="tabpanel" aria-label="Threat categories">
-        <div class="intel-empty-state">
-          <span class="intel-empty-icon" aria-hidden="true">▦</span>
-          <h3 class="intel-state-title">Threat Category Exposure — awaiting contract</h3>
-          <p class="intel-state-body">No category data available. Exposure analysis will map correlated findings to threat taxonomies (lateral movement, credential abuse, exfiltration, privilege escalation) and show which categories dominate.</p>
-          <ul class="intel-will-list">
-            <li><b>Exposure by category</b> — where correlated threat activity concentrates</li>
-            <li><b>Trend</b> — how category exposure changes over time</li>
-          </ul>
-          <div class="intel-contract-notice"><strong>Risk vs. Category:</strong> Pipeline risk (Live Operations) is observed danger; category is threat type. One is never inferred from the other.</div>
+        <div class="section-header">
+          <h2 class="section-h">Category exposure</h2>
+          <span class="section-meta" id="categories-meta">—</span>
         </div>
+        <div class="decision-legend" aria-label="Risk versus exposure versus severity versus confidence">
+          <span class="decision-legend-item"><b>Risk</b>&nbsp;observed pipeline danger per finding (max shown, never summed)</span>
+          <span class="decision-legend-item"><b>Exposure</b>&nbsp;explanatory concentration of correlated factor points</span>
+          <span class="decision-legend-item"><b>Severity</b>&nbsp;backend-assessed seriousness</span>
+          <span class="decision-legend-item"><b>Confidence</b>&nbsp;evidence strength 0–100</span>
+        </div>
+        <div id="categories-list"></div>
       </div>
 
-      <!-- Attack Paths -->
+      <!-- Attack Paths: live from GET /api/threats/attack-paths -->
       <div class="sub-view" id="intel-paths" role="tabpanel" aria-label="Attack paths">
-        <div class="intel-empty-state">
-          <span class="intel-empty-icon" aria-hidden="true">→</span>
-          <h3 class="intel-state-title">Attack Paths — awaiting correlation</h3>
-          <p class="intel-state-body">No attack path data available. Path reconstruction will chain correlated findings into multi-hop sequences showing how an adversary could traverse the mesh.</p>
-          <ul class="intel-will-list">
-            <li><b>Hop chain</b> — ordered service sequence from the correlation engine</li>
-            <li><b>Supporting findings</b> — the finding behind each hop</li>
-          </ul>
-          <div class="intel-contract-notice"><strong>Note:</strong> Approved service relationships are visible now in Zero-Trust Mesh → Service Map. No topology is inferred beyond registered contracts.</div>
+        <div class="section-header">
+          <h2 class="section-h">Reconstructed paths</h2>
+          <span class="section-meta" id="paths-meta">—</span>
         </div>
+        <div id="paths-list"></div>
       </div>
 
     </section>
@@ -1831,7 +1837,7 @@ const badge=(decision)=>{
 const viewMeta={
   overview:  ['Security Command Center','Monitor authoritative pipeline outcomes, validate controls, and investigate activity across the mesh.'],
   operations:['Live Operations','Review the current stream of authoritative pipeline decisions. Select a row to open its evidence and pipeline trace.'],
-  intelligence:['Threat Intelligence','Correlated findings with confidence, severity, and category exposure. Data boundary active — backend contract not yet exposed.'],
+  intelligence:['Threat Intelligence','Correlated findings with confidence, severity, and category exposure — live from the backend threat contracts.'],
   mesh:      ['Zero-Trust Mesh','Registered service relationships derived from active policy. Default-deny for any unlisted service pair.'],
   controls:  ['Security Controls','Validate enforcement policies, containment state, audit integrity, and run the attack simulator.'],
   response:  ['Response Recommendations','Advisory least-privilege guidance from observed policy use. Enforcement remains with the backend policy engine.']
@@ -1865,6 +1871,8 @@ function activateSubView(parentViewId, subViewId){
     });
   }
   activeSubViews[parentViewId]=subViewId;
+  // Lazy-load live threat data when an intelligence tab is shown (no extra polling loops).
+  if(parentViewId==='intelligence')loadIntelSub(subViewId);
 }
 
 function activateView(view, trigger, subView){
@@ -2037,7 +2045,7 @@ function renderAttentionQueue(){
       '<p class="attention-empty-title">'+(anyCount?'All session traffic allowed':'Nothing needs review')+'</p>'+
       '<p class="attention-empty-body">'+(anyCount
         ?anyCount+' session decision'+(anyCount===1?'':'s')+' observed, all ALLOW. Blocked, step-up, and monitored decisions will surface here, highest risk first.'
-        :'Blocked, step-up, and monitored decisions from this session will surface here, highest risk first. Correlated threat findings will appear here once the intelligence contract is connected.')+'</p>'+
+        :'Blocked, step-up, and monitored decisions from this session will surface here, highest risk first. Correlated threat findings live in Threat Intelligence.')+'</p>'+
       '<div class="data-boundary">Authoritative pipeline activity remains available in Live Operations</div>'+
       '</div></div></div>';
     return;
@@ -2487,6 +2495,265 @@ $('runAll').onclick=async()=>{
 };
 
 /* =====================================================
+   THREAT INTELLIGENCE — live read-only contracts
+   Display only: every value is copied from backend state,
+   nothing is calculated here.
+   ===================================================== */
+let threatFindings=[];
+let threatTotal=0;
+let threatFilters={category:'',severity:''};
+let selectedFindingId='';
+let threatLoaded=false;
+let threatDenied=false;
+let invKey='';
+
+function loadIntelSub(sub){
+  if(sub==='findings')loadThreatFindings();
+  else if(sub==='investigations')loadInvestigation(invKey||undefined);
+  else if(sub==='categories')loadCategories();
+  else if(sub==='paths')loadAttackPaths();
+}
+
+function threatListUrl(){
+  const p=new URLSearchParams({limit:'100'});
+  if(threatFilters.category)p.set('category',threatFilters.category);
+  if(threatFilters.severity)p.set('severity',threatFilters.severity);
+  return '/api/threats/findings?'+p.toString();
+}
+
+async function loadThreatFindings(){
+  const el=$('findings-list');
+  try{
+    const res=await fetch(threatListUrl(),{headers:{...keyHeader()}});
+    if(res.status===401){threatDenied=true;renderFindingsDenied();return;}
+    threatDenied=false;
+    const body=await res.json();
+    threatFindings=body.findings||[];
+    threatTotal=body.total||0;
+    threatLoaded=true;
+    renderFindings();
+    refreshInvOptions();
+  }catch(e){console.error(e);}
+}
+
+function sevClass(s){return s==='CRITICAL'?'sev-CRITICAL':s==='HIGH'?'sev-HIGH':s==='MEDIUM'?'sev-MEDIUM':'sev-LOW';}
+function sevRank(s){return s==='CRITICAL'?'C':s==='HIGH'?'H':s==='MEDIUM'?'M':'L';}
+function fmtTime(t){return new Date(t).toLocaleString();}
+
+function renderFindingsDenied(){
+  const count=$('findings-count');
+  if(count)count.textContent='key required';
+  $('findings-list').innerHTML='<div class="intel-empty-state"><h3 class="intel-state-title">Admin key required</h3><p class="intel-state-body">The dashboard is in private mode. Enter the admin key in the sidebar to read threat findings.</p></div>';
+  $('finding-detail').innerHTML='';
+}
+
+function renderFindings(){
+  const count=$('findings-count');
+  if(count)count.textContent=threatLoaded?(threatTotal+' active'):'—';
+  const el=$('findings-list');
+  if(!threatFindings.length){
+    el.innerHTML='<div class="intel-empty-state"><span class="intel-empty-icon" aria-hidden="true">◆</span>'+
+      '<h3 class="intel-state-title">No active findings</h3>'+
+      '<p class="intel-state-body">Findings appear here as the pipeline observes threat signals — run the Attack Simulator or wait for live traffic. Nothing is fabricated: an empty list means no active correlations.</p>'+
+      '<div class="intel-contract-notice"><strong>Scope:</strong> only active (non-expired) correlations are listed. Pipeline risk remains authoritative in Live Operations.</div></div>';
+    return;
+  }
+  el.innerHTML='<div class="table-container" role="list"><div class="event-stream-header" style="grid-template-columns:110px minmax(150px,1.2fr) minmax(140px,1fr) auto;" aria-hidden="true"><span>SEVERITY</span><span>FINDING</span><span>SOURCE → DEST</span><span style="text-align:right;">RISK · CONF</span></div></div>';
+  const wrap=el.firstChild;
+  threatFindings.forEach((f)=>{
+    const b=document.createElement('button');
+    b.type='button';
+    b.className='finding-row sev-'+sevRank(f.severity)+(f.findingId===selectedFindingId?' selected':'');
+    b.setAttribute('role','listitem');
+    b.setAttribute('aria-label','Open '+f.severity+' '+f.category+' finding, risk '+f.riskScore+', confidence '+f.confidenceScore);
+    b.innerHTML=
+      '<span><b class="'+sevClass(f.severity)+'" style="font-size:10.5px;">'+esc(f.severity)+'</b><br><span class="finding-sub">'+esc(f.category).replace(/_/g,' ')+'</span></span>'+
+      '<span><span class="finding-main">'+esc(f.reason).replace(/_/g,' ')+'</span><br><span class="finding-sub">'+esc(f.findingId)+' · '+esc(f.status)+'</span></span>'+
+      '<span><span class="finding-main">'+esc(f.source||'?')+' → '+esc(f.destination||'?')+'</span><br><span class="finding-sub">seen '+new Date(f.lastSeenAt).toLocaleTimeString()+'</span></span>'+
+      '<span class="finding-nums"><span class="risk-score '+(f.riskScore>=50?'risk-high':'risk-medium')+'">'+esc(f.riskScore)+'</span><span class="sub">conf '+esc(f.confidenceScore)+'</span></span>';
+    b.addEventListener('click',()=>openFinding(f.findingId));
+    wrap.appendChild(b);
+  });
+}
+
+async function openFinding(findingId){
+  selectedFindingId=findingId;
+  renderFindings();
+  const el=$('finding-detail');
+  el.innerHTML='<div class="sub">Loading finding…</div>';
+  try{
+    const res=await fetch('/api/threats/findings/'+encodeURIComponent(findingId),{headers:{...keyHeader()}});
+    if(res.status===404){el.innerHTML='<div class="intel-contract-notice"><strong>Expired:</strong> this finding is no longer active and was not replaced with new data.</div>';return;}
+    const d=await res.json();
+    renderFindingDetail(d);
+  }catch(e){console.error(e);}
+}
+
+function renderFindingDetail(d){
+  const riskCls=(d.riskScore||0)>=50?'critical':((d.riskScore||0)>0?'elevated':'');
+  const conf=(d.confidenceScore!=null)?d.confidenceScore:(d.assessment?.confidence?.score ?? '—');
+  const ev=(d.evidence||[]).map((e)=>
+    '<div style="padding:7px 0;border-bottom:1px solid var(--border);"><code>'+esc(e.evidenceId)+'</code> '+
+    '<span class="sub">'+esc(e.kind)+' · '+esc(e.reliability)+' · '+esc(e.completeness)+' · '+esc(e.detector?.name||'')+' v'+esc(e.detector?.version||'')+'</span>'+
+    '<div class="evidence-facts">'+esc(JSON.stringify(e.facts))+'</div></div>'
+  ).join('')||'<span class="sub">No evidence stored.</span>';
+  const sigs=(d.signals||[]).map((s)=>
+    '<div style="font-size:11px;color:var(--text-secondary);padding:3px 0;"><code>'+esc(s.type)+'</code> '+esc(s.disposition)+' · '+esc(s.role)+
+    (s.riskContribution?' · +'+esc(s.riskContribution.points)+' ('+esc(s.riskContribution.factorCode)+')':'')+'</div>'
+  ).join('')||'<span class="sub">No signals stored.</span>';
+  $('finding-detail').innerHTML=
+    '<div class="inv-workspace" style="border:1px solid var(--border);background:var(--surface);">'+
+      '<div class="inv-header"><div class="inv-id">'+esc(d.category).replace(/_/g,' ')+' · <span class="'+sevClass(d.severity)+'">'+esc(d.severity)+'</span> · '+esc(d.status)+'</div>'+
+      '<div class="inv-meta">'+esc(d.findingId)+'<br>Opened '+fmtTime(d.openedAt)+' · Last seen '+fmtTime(d.lastSeenAt)+'</div></div>'+
+      '<div class="inv-section"><div class="inv-h">Pipeline risk (authoritative, copied)</div><div class="inv-data">'+
+        '<div class="risk-meter" role="img" aria-label="Authoritative risk '+esc(d.riskScore)+' of 100"><div class="risk-meter-track"><span class="risk-meter-fill '+riskCls+'" style="width:'+Math.max(0,Math.min(100,d.riskScore||0))+'%"></span></div><span class="risk-meter-value">'+esc(d.riskScore)+'/100 · model '+esc(d.riskModelVersion)+'</span></div>'+
+        '<div class="sub" style="margin-top:4px;">Contributions: '+(d.contributionIds||[]).map((c)=>'<code>'+esc(c)+'</code>').join(' ')+'</div></div></div>'+
+      '<div class="inv-section"><div class="inv-h">Severity · Confidence (backend-assessed, distinct from risk)</div><div class="inv-data" style="font-size:12px;">Severity <b class="'+sevClass(d.severity)+'">'+esc(d.severity)+'</b> · Confidence <b>'+esc(conf)+'</b>/100'+
+        (d.recurrence?' · Recurrence ×'+esc(d.recurrence.count)+' (first '+fmtTime(d.recurrence.firstSeenAt)+')':'')+'</div></div>'+
+      '<div class="inv-section"><div class="inv-h">Decision context</div><div class="inv-data" style="font-size:12px;">'+badge(d.decision)+' <b>'+esc(d.reason).replace(/_/g,' ')+'</b>'+(d.hardOverride?' · hard override':'')+'<br><span class="sub">Source '+esc(d.source||'?')+' → '+esc(d.destination||'?')+' · Affected: '+esc((d.affectedServices||[]).join(', ')||'—')+'</span></div></div>'+
+      (d.assessment?'<div class="inv-section"><div class="inv-h">Assessment</div><div class="inv-data" style="font-size:12px;">'+esc(d.assessment.explanation)+'<br><span class="sub">Category exposure (explanatory): '+esc(d.assessment.categoryExposure.score)+' points</span></div></div>':'')+
+      (d.attackPath?'<div class="inv-section"><div class="inv-h">Observed attack path</div><div class="inv-data"><div class="path-chain">'+d.attackPath.services.map((s)=>'<span class="path-hop">'+esc(s)+'</span>').join('<span class="path-arrow">→</span>')+'</div><div class="sub" style="margin-top:4px;">trace '+esc(d.attackPath.traceId||'—')+'</div></div></div>':'')+
+      '<div class="inv-section"><div class="inv-h">Signals ('+(d.signals||[]).length+')</div><div class="inv-data">'+sigs+'</div></div>'+
+      '<div class="inv-section"><div class="inv-h">Evidence ('+(d.evidence||[]).length+')</div><div class="inv-data">'+ev+'</div></div>'+
+      '<div class="inv-section" style="border-bottom:none;display:flex;gap:8px;flex-wrap:wrap;">'+
+        (d.correlationKey?'<button class="btn btn-primary btn-sm" id="finding-open-inv" type="button">Open investigation</button>':'')+
+        '<button class="btn btn-secondary btn-sm" id="finding-close" type="button">Back to list</button></div>'+
+    '</div>';
+  const close=$('finding-close');
+  if(close)close.addEventListener('click',()=>{selectedFindingId='';$('finding-detail').innerHTML='';renderFindings();});
+  const inv=$('finding-open-inv');
+  if(inv)inv.addEventListener('click',()=>{openInvestigation(d.correlationKey);activateSubView('intelligence','investigations');syncIntelTabs();});
+}
+
+function syncIntelTabs(){
+  const tabContainer=$('intel-tabs');
+  if(!tabContainer)return;
+  tabContainer.querySelectorAll('.view-tab').forEach((t)=>{
+    const on=t.dataset.sub===activeSubViews.intelligence;
+    t.classList.toggle('active',on);
+    t.setAttribute('aria-selected',on?'true':'false');
+  });
+  document.querySelectorAll('.nav-item[data-view="intelligence"]').forEach((ni)=>{
+    const on=ni.dataset.sub===activeSubViews.intelligence;
+    ni.classList.toggle('active',on);
+    if(on)ni.setAttribute('aria-current','page');else ni.removeAttribute('aria-current');
+  });
+}
+
+function refreshInvOptions(){
+  const sel=$('inv-key');
+  if(!sel)return;
+  const keys=[...new Set(threatFindings.map((f)=>f.correlationKey).filter(Boolean))];
+  if(invKey&&!keys.includes(invKey))keys.unshift(invKey);
+  sel.innerHTML=keys.length
+    ?keys.map((k)=>'<option value="'+esc(k)+'"'+(k===invKey?' selected':'')+'>'+esc(k)+'</option>').join('')
+    :'<option value="">No active correlations</option>';
+  if(!invKey&&keys.length)invKey=keys[0];
+}
+
+async function loadInvestigation(key){
+  if(!threatLoaded&&!threatDenied)await loadThreatFindings();
+  refreshInvOptions();
+  const el=$('investigation-detail');
+  const meta=$('inv-meta');
+  const useKey=key||invKey;
+  if(!useKey){
+    if(meta)meta.textContent='—';
+    el.innerHTML='<div class="intel-empty-state"><span class="intel-empty-icon" aria-hidden="true">◇</span><h3 class="intel-state-title">No active investigations</h3><p class="intel-state-body">Investigations group the findings that share one correlation key (request, trace, service, or edge). Open any finding to jump to its investigation.</p><div class="intel-contract-notice"><strong>Note:</strong> Single-event evidence is available now in Live Operations → Event investigation.</div></div>';
+    return;
+  }
+  invKey=useKey;
+  try{
+    const res=await fetch('/api/threats/investigations/'+encodeURIComponent(useKey),{headers:{...keyHeader()}});
+    if(res.status===404){el.innerHTML='<div class="intel-contract-notice"><strong>Expired:</strong> no active finding shares this key anymore.</div>';return;}
+    const v=await res.json();
+    if(meta)meta.textContent=v.findings.length+' finding'+(v.findings.length===1?'':'s');
+    el.innerHTML=
+      '<div class="inv-workspace" style="border:1px solid var(--border);background:var(--surface);">'+
+      '<div class="inv-header"><div class="inv-id">Correlation: '+esc(v.correlationKey)+'</div><div class="inv-meta">'+fmtTime(v.firstSeenAt)+' → '+fmtTime(v.lastSeenAt)+' · Affected: '+esc(v.affectedServices.join(', ')||'—')+'</div></div>'+
+      '<div class="inv-section"><div class="inv-h">Grouped findings ('+v.findings.length+')</div><div class="inv-data">'+
+        v.findings.map((f)=>'<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;"><b class="'+sevClass(f.severity)+'">'+esc(f.severity)+'</b> '+esc(f.category).replace(/_/g,' ')+' · risk '+esc(f.riskScore)+' · conf '+esc(f.confidenceScore)+' · '+badge(f.decision)+' '+esc(f.reason).replace(/_/g,' ')+'<br><span class="sub">'+esc(f.findingId)+'</span></div>').join('')+'</div></div>'+
+      '<div class="inv-section"><div class="inv-h">Decisions in this correlation</div><div class="inv-data">'+
+        v.decisions.map((d)=>'<div style="font-size:11.5px;padding:2px 0;">'+badge(d.decision)+' '+esc(d.reason).replace(/_/g,' ')+' <span class="sub">'+fmtTime(d.at)+'</span></div>').join('')+'</div></div>'+
+      '<div class="inv-section" style="border-bottom:none;"><div class="inv-h">Evidence references ('+v.evidence.length+')</div><div class="inv-data">'+
+        v.evidence.slice(0,30).map((e)=>'<div style="font-size:11px;padding:2px 0;"><code>'+esc(e.evidenceId)+'</code> <span class="sub">'+esc(e.kind)+' · '+esc(e.reliability)+'</span></div>').join('')+
+        (v.evidence.length>30?'<div class="sub">+'+(v.evidence.length-30)+' more (bounded response)</div>':'')+'</div></div></div>';
+  }catch(e){console.error(e);}
+}
+
+async function loadCategories(){
+  const el=$('categories-list');
+  const meta=$('categories-meta');
+  try{
+    const [cats,all]=await Promise.all([
+      fetch('/api/threats/categories',{headers:{...keyHeader()}}).then((r)=>r.json()),
+      fetch('/api/threats/findings?limit=100',{headers:{...keyHeader()}}).then((r)=>r.json()).catch(()=>({findings:[]})),
+    ]);
+    const rows=cats.categories||[];
+    if(meta)meta.textContent=(cats.totalActiveFindings||0)+' active findings';
+    if(!rows.length){
+      el.innerHTML='<div class="intel-empty-state"><span class="intel-empty-icon" aria-hidden="true">▦</span><h3 class="intel-state-title">No category data</h3><p class="intel-state-body">Exposure appears here once findings are correlated. Run the Attack Simulator or wait for live traffic — nothing is inferred from risk scores.</p></div>';
+      return;
+    }
+    const maxRisk={};
+    for(const f of (all.findings||[]))maxRisk[f.category]=Math.max(maxRisk[f.category]||0,f.riskScore||0);
+    el.innerHTML='<div class="table-container"><table><thead><tr><th>Category</th><th>Findings</th><th>Exposure*</th><th>Highest severity</th><th>Highest conf.</th><th>Highest risk (max)</th></tr></thead><tbody>'+
+      rows.map((c)=>'<tr><td><b>'+esc(c.category).replace(/_/g,' ')+'</b></td><td>'+esc(c.findingCount)+'</td><td>'+esc(c.exposureScore)+'</td><td><b class="'+sevClass(c.maxSeverity)+'">'+esc(c.maxSeverity)+'</b></td><td>'+esc(c.maxConfidence)+'</td><td>'+esc(maxRisk[c.category]||0)+'</td></tr>').join('')+
+      '</tbody></table></div><div class="intel-contract-notice"><strong>*Exposure</strong> is explanatory concentration of correlated factor points — it is not summed into pipeline risk, and risk maxima are shown for comparison only.</div>';
+  }catch(e){console.error(e);}
+}
+
+async function loadAttackPaths(){
+  const el=$('paths-list');
+  const meta=$('paths-meta');
+  try{
+    const body=await fetch('/api/threats/attack-paths',{headers:{...keyHeader()}}).then((r)=>r.json());
+    const paths=body.paths||[];
+    if(meta)meta.textContent=paths.length+' path'+(paths.length===1?'':'s')+' · '+body.totalActiveFindings+' active findings';
+    if(!paths.length){
+      el.innerHTML='<div class="intel-empty-state"><span class="intel-empty-icon" aria-hidden="true">→</span><h3 class="intel-state-title">'+(body.totalActiveFindings?'No reconstructed paths':'No attack path data')+'</h3><p class="intel-state-body">'+(body.totalActiveFindings?'Findings are active but none chain into a multi-hop path yet. Paths are only shown when the correlator reconstructs them (e.g. lateral movement).':'Path reconstruction chains correlated findings into multi-hop sequences. Run the Attack Simulator — the lateral-movement scenario produces a real one.')+'</p><div class="intel-contract-notice"><strong>Note:</strong> Approved relationships are in Zero-Trust Mesh → Service Map. No topology is inferred beyond observed evidence.</div></div>';
+      return;
+    }
+    el.innerHTML=paths.map((p)=>'<div class="inv-workspace" style="border:1px solid var(--border);background:var(--surface);margin-bottom:12px;">'+
+      '<div class="inv-header"><div class="inv-id"><span class="'+sevClass(p.severity)+'">'+esc(p.severity)+'</span> · '+esc(p.category).replace(/_/g,' ')+'</div><div class="inv-meta">trace '+esc(p.traceId||'—')+' · last seen '+fmtTime(p.lastSeenAt)+'</div></div>'+
+      '<div class="inv-section" style="border-bottom:none;"><div class="inv-h">Observed hop chain</div><div class="path-chain">'+p.services.map((s)=>'<span class="path-hop">'+esc(s)+'</span>').join('<span class="path-arrow">→</span>')+'</div>'+
+      '<div style="margin-top:8px;"><button class="btn btn-secondary btn-sm" data-finding="'+esc(p.findingId)+'" data-ckey="'+esc(p.correlationKey||'')+'" type="button">Open finding</button></div></div></div>').join('');
+    el.querySelectorAll('button[data-finding]').forEach((b)=>b.addEventListener('click',()=>{
+      if(b.dataset.ckey){openInvestigation(b.dataset.ckey);activateSubView('intelligence','investigations');syncIntelTabs();}
+      else{openFinding(b.dataset.finding);activateSubView('intelligence','findings');syncIntelTabs();}
+    }));
+  }catch(e){console.error(e);}
+}
+
+function openInvestigation(key){
+  if(key)invKey=key;
+  loadInvestigation(invKey);
+}
+
+// Additive live updates on the EXISTING socket: upsert, keep filters + selection, never reload the page.
+function onThreatFinding(summary){
+  if(!summary||!summary.findingId)return;
+  if(!threatLoaded)return; // list loads on first tab open; no phantom rows before that
+  const i=threatFindings.findIndex((f)=>f.findingId===summary.findingId);
+  const matches=!threatFilters.category||summary.category===threatFilters.category;
+  const matchesSev=!threatFilters.severity||summary.severity===threatFilters.severity;
+  if(i>=0){
+    if(matches&&matchesSev)threatFindings[i]=summary;
+    else threatFindings.splice(i,1);
+  }else if(matches&&matchesSev){
+    threatFindings=[summary,...threatFindings].slice(0,100);
+    threatTotal++;
+  }
+  const panel=document.querySelector('[data-view-panel="intelligence"]');
+  if(!panel||!panel.classList.contains('active'))return;
+  const sub=activeSubViews.intelligence;
+  if(sub==='findings'){renderFindings();refreshInvOptions();if(selectedFindingId===summary.findingId)openFinding(selectedFindingId);}
+  else if(sub==='investigations'&&summary.correlationKey===invKey)loadInvestigation(invKey);
+  else if(sub==='categories')loadCategories();
+  else if(sub==='paths')loadAttackPaths();
+}
+
+/* =====================================================
    WEBSOCKET
    ===================================================== */
 function connect(){
@@ -2514,9 +2781,13 @@ function connect(){
   };
 
   ws.onmessage=(e)=>{
-    const r=JSON.parse(e.data).data;
-    if(!r||r.type&&r.type!=='decision')return;
-    addDecision(r);
+    let msg;
+    try{msg=JSON.parse(e.data);}catch{return;}
+    if(!msg||typeof msg!=='object')return;
+    // Versioned additive threat events share this connection; they upsert
+    // finding state and must never enter the pipeline decision feed.
+    if(msg.type==='threat.finding.v1'){onThreatFinding(msg.data);return;}
+    if(msg.data&&(msg.type==='decision'||!msg.type))addDecision(msg.data);
   };
 }
 
@@ -2526,6 +2797,9 @@ function connect(){
 $('key').addEventListener('change',()=>location.reload());
 $('decision-filter').addEventListener('change',renderFeed);
 $('decision-search').addEventListener('input',renderFeed);
+$('finding-category').addEventListener('change',()=>{threatFilters.category=$('finding-category').value;loadThreatFindings();});
+$('finding-severity').addEventListener('change',()=>{threatFilters.severity=$('finding-severity').value;loadThreatFindings();});
+$('inv-key').addEventListener('change',()=>{openInvestigation($('inv-key').value);});
 loadStatic();
 refreshMetrics();
 connect();

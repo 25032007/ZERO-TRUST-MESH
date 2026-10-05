@@ -8,11 +8,16 @@
 import { EventEmitter } from 'node:events';
 import type { Server as HttpServer } from 'node:http';
 import { WebSocketServer } from 'ws';
+import type { FindingSummary } from '../threat/presenter.js';
 import type { PipelineResult } from '../types.js';
 
 export class EventBus extends EventEmitter {
   publishDecision(result: PipelineResult): void {
     this.emit('decision', result);
+  }
+  /** Additive threat update; never replaces the pipeline decision event. */
+  publishThreatFinding(summary: FindingSummary): void {
+    this.emit('threat-finding', summary);
   }
 }
 
@@ -36,9 +41,18 @@ export function attachWebSocket(
     const onDecision = (r: PipelineResult) => {
       if (socket.readyState === socket.OPEN) socket.send(JSON.stringify({ type: 'decision', data: r }));
     };
+    // Versioned additive threat events ride the SAME connection; no second socket.
+    const onThreatFinding = (summary: FindingSummary) => {
+      if (socket.readyState === socket.OPEN) socket.send(JSON.stringify({ type: 'threat.finding.v1', data: summary }));
+    };
     bus.on('decision', onDecision);
-    socket.on('close', () => bus.off('decision', onDecision)); // avoid listener leaks
-    socket.on('error', () => bus.off('decision', onDecision));
+    bus.on('threat-finding', onThreatFinding);
+    const detach = () => {
+      bus.off('decision', onDecision); // avoid listener leaks
+      bus.off('threat-finding', onThreatFinding);
+    };
+    socket.on('close', detach);
+    socket.on('error', detach);
   });
 
   return wss;

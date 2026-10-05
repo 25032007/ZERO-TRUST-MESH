@@ -63,6 +63,39 @@ export class ThreatCorrelator {
     return [...this.active.values()].slice(-limit).reverse().map(({ finding }) => cloneFinding(finding));
   }
 
+  /**
+   * Read-only detail for one active finding, including the stored signals and
+   * evidence that produced it. Cloned so API consumers can never mutate state.
+   * (Additive for the Phase 4 read-only contract; correlation semantics unchanged.)
+   */
+  detail(findingId: string): { finding: ThreatFinding; signals: NormalizedSignal[]; evidence: Evidence[] } | undefined {
+    for (const entry of this.active.values()) {
+      if (entry.finding.findingId !== findingId) continue;
+      return {
+        finding: cloneFinding(entry.finding),
+        signals: [...entry.signals.values()].map((s) => ({ ...s, evidenceRefs: [...s.evidenceRefs], detector: { ...s.detector } })),
+        evidence: [...entry.evidence.values()].map((e) => ({ ...e, detector: { ...e.detector }, facts: { ...e.facts } })),
+      };
+    }
+    return undefined;
+  }
+
+  /**
+   * All active findings sharing one correlation key (oldest first), each with
+   * its evidence. Powers the investigation view; uses only existing state.
+   */
+  investigation(correlationKey: string): Array<{ finding: ThreatFinding; evidence: Evidence[] }> {
+    const out: Array<{ finding: ThreatFinding; evidence: Evidence[] }> = [];
+    for (const entry of this.active.values()) {
+      if (entry.finding.correlationKey !== correlationKey) continue;
+      out.push({
+        finding: cloneFinding(entry.finding),
+        evidence: [...entry.evidence.values()].map((e) => ({ ...e, detector: { ...e.detector }, facts: { ...e.facts } })),
+      });
+    }
+    return out.sort((a, b) => a.finding.openedAt - b.finding.openedAt);
+  }
+
   private create(seed: ThreatFinding, observation: ThreatObservation, correlationKey: string): StoredFinding {
     // The key is deterministic for active correlation; openedAt distinguishes a later finding after expiry.
     const entry: StoredFinding = {

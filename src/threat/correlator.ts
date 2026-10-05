@@ -1,4 +1,6 @@
-import type { ThreatCategory, ThreatFinding, ThreatObservation, ThreatSeverity } from './contracts.js';
+import type { Evidence, NormalizedSignal, ThreatCategory, ThreatFinding, ThreatObservation, ThreatSeverity } from './contracts.js';
+import { assessFinding } from './assessment.js';
+import type { ContributionRecord } from './exposure.js';
 
 export interface ThreatCorrelationConfig {
   windowMs: number;
@@ -11,6 +13,9 @@ interface StoredFinding {
   finding: ThreatFinding;
   lastSeenAt: number;
   windowMs: number;
+  signals: Map<string, NormalizedSignal>;
+  evidence: Map<string, Evidence>;
+  contributions: Map<string, ContributionRecord>;
 }
 
 const SEVERITY_RANK: Record<ThreatSeverity, number> = { LOW: 0, MEDIUM: 1, HIGH: 2, CRITICAL: 3 };
@@ -30,7 +35,6 @@ export class ThreatCorrelator {
   correlate(observation: ThreatObservation): ThreatFinding[] {
     const now = observation.evidence[0]?.observedAt ?? this.clock();
     this.purge(now);
-    const evidenceById = new Map(observation.evidence.map((e) => [e.evidenceId, e]));
     const out: ThreatFinding[] = [];
 
     for (const seed of observation.findings) {
@@ -40,13 +44,15 @@ export class ThreatCorrelator {
       const key = `${signal.primaryCategory}|${correlationKey}`;
       const windowMs = signal.type === 'LATERAL_MOVEMENT' && signal.correlationId ? this.cfg.traceWindowMs : this.cfg.windowMs;
       const existing = this.active.get(key);
-      const finding = existing && now - existing.lastSeenAt <= existing.windowMs
-        ? this.update(existing.finding, seed, observation, evidenceById)
-        : this.create(seed, observation, evidenceById, correlationKey);
+      const entry = existing && now - existing.lastSeenAt <= existing.windowMs
+        ? this.update(existing, seed, observation, correlationKey)
+        : this.create(seed, observation, correlationKey);
 
       this.active.delete(key);
-      this.active.set(key, { finding, lastSeenAt: now, windowMs });
-      out.push(cloneFinding(finding));
+      entry.lastSeenAt = now;
+      entry.windowMs = windowMs;
+      this.active.set(key, entry);
+      out.push(cloneFinding(entry.finding));
     }
     this.evictToCapacity();
     return out;
@@ -57,46 +63,57 @@ export class ThreatCorrelator {
     return [...this.active.values()].slice(-limit).reverse().map(({ finding }) => cloneFinding(finding));
   }
 
-  private create(seed: ThreatFinding, observation: ThreatObservation, evidenceById: Map<string, ThreatObservation['evidence'][number]>, correlationKey: string): ThreatFinding {
+  private create(seed: ThreatFinding, observation: ThreatObservation, correlationKey: string): StoredFinding {
     // The key is deterministic for active correlation; openedAt distinguishes a later finding after expiry.
-    const finding = cloneFinding({ ...seed, findingId: `finding:${seed.category}:${correlationKey}:${seed.openedAt}`, correlationKey, recurrence: { count: 1, firstSeenAt: seed.openedAt, lastSeenAt: seed.lastSeenAt } });
-    this.addRequestEvidence(finding, observation);
-    this.addAttackPath(finding, observation, evidenceById);
-    return finding;
+    const entry: StoredFinding = {
+      finding: cloneFinding({ ...seed, findingId: `finding:${seed.category}:${correlationKey}:${seed.openedAt}`, correlationKey, recurrence: { count: 1, firstSeenAt: seed.openedAt, lastSeenAt: seed.lastSeenAt } }),
+      lastSeenAt: seed.lastSeenAt,
+      windowMs: this.cfg.windowMs,
+      signals: new Map(), evidence: new Map(), contributions: new Map(),
+    };
+    this.addObservation(entry, observation);
+    return entry;
   }
 
-  private update(current: ThreatFinding, seed: ThreatFinding, observation: ThreatObservation, evidenceById: Map<string, ThreatObservation['evidence'][number]>): ThreatFinding {
-    const finding = cloneFinding(current);
+  private update(current: StoredFinding, seed: ThreatFinding, observation: ThreatObservation, _correlationKey: string): StoredFinding {
+    const finding = cloneFinding(current.finding);
     finding.lastSeenAt = seed.lastSeenAt;
     finding.recurrence = {
-      count: (current.recurrence?.count ?? 1) + 1,
-      firstSeenAt: current.recurrence?.firstSeenAt ?? current.openedAt,
+      count: (finding.recurrence?.count ?? 1) + 1,
+      firstSeenAt: finding.recurrence?.firstSeenAt ?? finding.openedAt,
       lastSeenAt: seed.lastSeenAt,
     };
+    // A finding summarizes recurrence, but its decision context describes the latest finalized observation.
+    finding.decisionContext = { ...seed.decisionContext };
     if (seed.risk.score > finding.risk.score) finding.risk.score = seed.risk.score;
     appendUniqueBounded(finding.risk.contributionIds, seed.risk.contributionIds, this.cfg.maxEvidencePerFinding);
     appendUniqueBounded(finding.detectorSummary, seed.detectorSummary, this.cfg.maxEvidencePerFinding, (x) => `${x.name}:${x.version}`);
-    appendUniqueBounded(finding.confidence.criteria, seed.confidence.criteria, this.cfg.maxEvidencePerFinding);
-    finding.confidence.score = Math.max(finding.confidence.score, seed.confidence.score);
     if (SEVERITY_RANK[seed.severity] > SEVERITY_RANK[finding.severity]) finding.severity = seed.severity;
-    this.addRequestEvidence(finding, observation);
-    this.addAttackPath(finding, observation, evidenceById);
-    return finding;
+    const entry: StoredFinding = { ...current, finding };
+    this.addObservation(entry, observation);
+    return entry;
   }
 
   /** Request-level evidence is shared for explainability, while category identity remains separate. */
-  private addRequestEvidence(finding: ThreatFinding, observation: ThreatObservation): void {
+  private addObservation(entry: StoredFinding, observation: ThreatObservation): void {
+    const finding = entry.finding;
     appendUniqueBounded(finding.evidenceIds, observation.evidence.map((e) => e.evidenceId), this.cfg.maxEvidencePerFinding);
-  }
-
-  private addAttackPath(finding: ThreatFinding, observation: ThreatObservation, evidenceById: Map<string, ThreatObservation['evidence'][number]>): void {
-    if (!finding.correlationKey?.startsWith('trace:')) return;
-    for (const evidence of evidenceById.values()) {
+    for (const signal of observation.signals) entry.signals.set(signal.signalId, signal);
+    for (const evidence of observation.evidence) entry.evidence.set(evidence.evidenceId, evidence);
+    for (const signal of observation.signals) {
+      if (!signal.riskContribution || !signal.primaryCategory) continue;
+      entry.contributions.set(signal.riskContribution.id, { ...signal.riskContribution, primaryCategory: signal.primaryCategory });
+    }
+    while (entry.signals.size > this.cfg.maxEvidencePerFinding * 2) entry.signals.delete(entry.signals.keys().next().value!);
+    while (entry.evidence.size > this.cfg.maxEvidencePerFinding * 2) entry.evidence.delete(entry.evidence.keys().next().value!);
+    while (entry.contributions.size > this.cfg.maxEvidencePerFinding) entry.contributions.delete(entry.contributions.keys().next().value!);
+    if (finding.correlationKey?.startsWith('trace:')) for (const evidence of observation.evidence) {
       const path = evidence.facts.path;
       if (!Array.isArray(path) || !path.every((service): service is string => typeof service === 'string')) continue;
       const observedAt = finding.attackPath?.observedAt ?? [];
       finding.attackPath = { services: [...path], traceId: evidence.traceId, observedAt: [...observedAt, evidence.observedAt].slice(-this.cfg.maxEvidencePerFinding) };
     }
+    entry.finding = assessFinding(finding, entry.signals.values(), entry.evidence.values(), entry.contributions.values());
   }
 
   private purge(now: number): void {

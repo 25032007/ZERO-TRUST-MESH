@@ -47,6 +47,32 @@ export type EvidenceReliability = 'deterministic' | 'statistical' | 'contextual'
 export type EvidenceCompleteness = 'complete' | 'partial';
 export type ThreatSeverity = RiskLevel;
 
+export interface ConfidenceCriterion {
+  name: 'detectorValidity' | 'evidenceCompleteness' | 'corroboration' | 'correlationQuality';
+  satisfied: boolean;
+  points: 0 | 25;
+  reason: string;
+}
+
+export interface ThreatConfidence {
+  score: number;
+  criteria: ConfidenceCriterion[];
+}
+
+export interface CategoryExposure {
+  category: ThreatCategory;
+  score: number;
+  contributionIds: string[];
+}
+
+export interface ThreatAssessment {
+  categoryExposure: CategoryExposure;
+  severity: ThreatSeverity;
+  risk: { score: number; riskModelVersion: string; contributionIds: string[] };
+  confidence: ThreatConfidence;
+  explanation: string;
+}
+
 /** A bounded primitive-only object prevents raw requests, credentials, and secrets from entering threat data. */
 export type EvidenceFacts = Record<string, string | number | boolean | string[] | number[]>;
 
@@ -93,7 +119,7 @@ export interface ThreatFinding {
   category: ThreatCategory;
   severity: ThreatSeverity;
   risk: { score: number; riskModelVersion: string; contributionIds: string[] };
-  confidence: { score: number; criteria: string[] };
+  confidence: ThreatConfidence;
   status: 'active' | 'resolved' | 'suppressed';
   evidenceIds: string[];
   detectorSummary: Array<{ name: string; version: string }>;
@@ -105,6 +131,7 @@ export interface ThreatFinding {
   attackPath?: { services: string[]; traceId?: string; observedAt?: number[] };
   policyContext?: { policyId?: string; reason: string; dryRun: boolean };
   recurrence?: { count: number; firstSeenAt: number; lastSeenAt: number };
+  assessment?: ThreatAssessment;
 }
 
 /** Contract only: Phase 1 deliberately emits no recommendations. */

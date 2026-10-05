@@ -122,7 +122,7 @@ export function normalizePipelineResult(result: PipelineResult, context: ThreatO
       category: mapping.primaryCategory,
       severity: severityFor(signal, result),
       risk: { score: result.riskScore, riskModelVersion: 'existing-factor-ledger-v1', contributionIds: contributionId ? [contributionId] : [] },
-      confidence: { score: confidenceFor(item), criteria: confidenceCriteria(item) },
+      confidence: confidenceFor(item),
       status: 'active',
       evidenceIds: [evidenceId],
       detectorSummary: [DETECTOR],
@@ -139,20 +139,21 @@ export function normalizePipelineResult(result: PipelineResult, context: ThreatO
 function severityFor(signal: NormalizedSignal, result: PipelineResult): ThreatSeverity {
   if (signal.type === 'LATERAL_MOVEMENT') return 'CRITICAL';
   if (['TOKEN_REPLAY', 'INVALID_SIGNATURE', 'UNKNOWN_KEY', 'IDENTITY_MISMATCH'].includes(signal.type)) return 'HIGH';
-  if (result.riskScore >= 60) return 'HIGH';
-  if (result.riskScore >= 30) return 'MEDIUM';
+  // Context-dependent severity is enriched from evidence/recurrence later; final risk is never a severity proxy.
+  void result;
   return 'LOW';
 }
 
-function confidenceCriteria(evidence: Evidence): string[] {
-  const criteria = ['detector_validity', 'evidence_completeness'];
-  if (evidence.reliability === 'deterministic') criteria.push('corroboration');
-  if (evidence.traceId || evidence.requestId) criteria.push('correlation_quality');
-  return criteria;
-}
-
-function confidenceFor(evidence: Evidence): number {
-  return confidenceCriteria(evidence).length * 25;
+function confidenceFor(evidence: Evidence): ThreatFinding['confidence'] {
+  const deterministic = evidence.reliability === 'deterministic';
+  const correlated = evidence.traceId !== undefined || evidence.requestId !== undefined;
+  const criteria = [
+    { name: 'detectorValidity' as const, satisfied: true, points: 25 as const, reason: 'The security pipeline emitted this normalized signal.' },
+    { name: 'evidenceCompleteness' as const, satisfied: evidence.completeness === 'complete', points: evidence.completeness === 'complete' ? 25 as const : 0 as const, reason: evidence.completeness === 'complete' ? 'Required evidence fields are present.' : 'Required evidence fields are incomplete.' },
+    { name: 'corroboration' as const, satisfied: deterministic, points: deterministic ? 25 as const : 0 as const, reason: deterministic ? 'The detector produced deterministic evidence.' : 'No independent corroboration is available yet.' },
+    { name: 'correlationQuality' as const, satisfied: correlated, points: correlated ? 25 as const : 0 as const, reason: correlated ? 'Request or trace identity is available.' : 'No request or trace identity is available.' },
+  ];
+  return { score: criteria.reduce((sum, criterion) => sum + criterion.points, 0), criteria };
 }
 
 function isHardOverride(signal: NormalizedSignal, result: PipelineResult): boolean {

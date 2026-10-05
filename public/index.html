@@ -31,21 +31,22 @@
   --shadow-sm:        0 1px 3px rgba(0,0,0,0.06);
 
   /* Sidebar — always dark forest */
-  --sidebar-bg:           #26372E;
+  --sidebar-bg:           #1C2B23;
   --sidebar-text:         #F1EEE6;
-  --sidebar-label:        rgba(241,238,230,0.52);
-  --sidebar-active-bg:    rgba(198,146,75,0.13);
+  --sidebar-label:        rgba(241,238,230,0.48);
+  --sidebar-active-bg:    rgba(198,146,75,0.12);
   --sidebar-active-text:  #C6924B;
-  --sidebar-hover-bg:     rgba(255,255,255,0.05);
+  --sidebar-hover-bg:     rgba(255,255,255,0.04);
   --sidebar-divider:      rgba(255,255,255,0.07);
-  --sidebar-border-right: none;
-  --sidebar-input-bg:     rgba(0,0,0,0.22);
-  --sidebar-input-border: rgba(255,255,255,0.13);
+  --sidebar-border-right: 1px solid rgba(255,255,255,0.05);
+  --sidebar-input-bg:     rgba(0,0,0,0.25);
+  --sidebar-input-border: rgba(255,255,255,0.12);
+  --sidebar-group-label:  rgba(241,238,230,0.32);
 
   --code-bg:          #EEE9DE;
   --code-border:      #D9D3C7;
   --code-text:        #18251F;
-  --table-header-bg:  #F4F0E7;
+  --table-header-bg:  #F9F7F3;
 
   --btn-primary-bg:    #26372E;
   --btn-primary-text:  #F1EEE6;
@@ -73,37 +74,38 @@
    DESIGN TOKENS — Dark Mode (Deep Forest)
    ===================================================== */
 [data-theme="dark"] {
-  --bg:               #101512;
-  --surface:          #18201C;
-  --surface-elevated: #202A24;
+  --bg:               #0E1511;
+  --surface:          #161D18;
+  --surface-elevated: #1D2720;
   --text-primary:     #F1EEE6;
   --text-secondary:   #A9B1AA;
-  --muted:            #636B60;
-  --border:           #2A352F;
-  --shadow-sm:        0 1px 4px rgba(0,0,0,0.45);
+  --muted:            #5E6660;
+  --border:           #252E28;
+  --shadow-sm:        0 1px 4px rgba(0,0,0,0.5);
 
-  --sidebar-bg:           #101512;
+  --sidebar-bg:           #0A0F0C;
   --sidebar-text:         #F1EEE6;
-  --sidebar-label:        rgba(241,238,230,0.40);
-  --sidebar-active-bg:    rgba(216,173,92,0.13);
+  --sidebar-label:        rgba(241,238,230,0.38);
+  --sidebar-active-bg:    rgba(216,173,92,0.11);
   --sidebar-active-text:  #D8AD5C;
-  --sidebar-hover-bg:     rgba(255,255,255,0.04);
-  --sidebar-divider:      rgba(255,255,255,0.06);
-  --sidebar-border-right: 1px solid #2A352F;
-  --sidebar-input-bg:     rgba(0,0,0,0.35);
-  --sidebar-input-border: rgba(255,255,255,0.10);
+  --sidebar-hover-bg:     rgba(255,255,255,0.035);
+  --sidebar-divider:      rgba(255,255,255,0.055);
+  --sidebar-border-right: 1px solid #1D2720;
+  --sidebar-input-bg:     rgba(0,0,0,0.4);
+  --sidebar-input-border: rgba(255,255,255,0.09);
+  --sidebar-group-label:  rgba(241,238,230,0.28);
 
-  --code-bg:          #202A24;
-  --code-border:      #2A352F;
+  --code-bg:          #1D2720;
+  --code-border:      #252E28;
   --code-text:        #F1EEE6;
-  --table-header-bg:  #202A24;
+  --table-header-bg:  #1D2720;
 
   --btn-primary-bg:    #26372E;
   --btn-primary-text:  #F1EEE6;
   --btn-primary-hover: #364D42;
-  --btn-secondary-bg:  #18201C;
+  --btn-secondary-bg:  #161D18;
   --btn-secondary-text:#F1EEE6;
-  --btn-secondary-hover:#202A24;
+  --btn-secondary-hover:#1D2720;
 
   --allow:      #78A77F;
   --info:       #6FB0C4;
@@ -135,13 +137,16 @@ body{
    LAYOUT
    ===================================================== */
 .layout-sidebar{
-  width:240px;
+  width:252px;
+  min-width:252px;
   background:var(--sidebar-bg);
   color:var(--sidebar-text);
   display:flex;
   flex-direction:column;
   flex-shrink:0;
   border-right:var(--sidebar-border-right);
+  overflow-y:auto;
+  overflow-x:hidden;
 }
 .layout-main{
   flex:1;
@@ -150,40 +155,115 @@ body{
   overflow:hidden;
   min-width:0;
 }
+.workspace{
+  flex:1;
+  overflow-y:auto;
+  min-width:0;
+}
 
 /* =====================================================
-   SIDEBAR
+   SIDEBAR HEADER
    ===================================================== */
 .sidebar-header{
-  padding:22px 20px 18px;
+  padding:20px 18px 14px;
   border-bottom:1px solid var(--sidebar-divider);
+  flex-shrink:0;
 }
-.sidebar-brand{
-  font-size:13px;
-  font-weight:700;
-  text-transform:uppercase;
-  letter-spacing:0.9px;
-  color:var(--sidebar-text);
+.sidebar-wordmark{
+  display:flex;
+  align-items:center;
+  gap:9px;
   margin-bottom:7px;
 }
+.sidebar-logo{
+  width:22px;height:22px;
+  background:var(--sidebar-active-text);
+  border-radius:3px;
+  display:grid;place-items:center;
+  flex-shrink:0;
+}
+.sidebar-logo svg{width:13px;height:13px;stroke:#fff;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}
+.sidebar-brand{
+  font-size:12.5px;
+  font-weight:700;
+  letter-spacing:.4px;
+  color:var(--sidebar-text);
+  text-transform:uppercase;
+  line-height:1.2;
+}
+.sidebar-product-sub{
+  font-size:10px;
+  font-weight:500;
+  color:var(--sidebar-label);
+  letter-spacing:.2px;
+  margin-top:1px;
+}
 .sidebar-tagline{
-  font-size:11px;
-  line-height:1.55;
+  font-size:10.5px;
+  line-height:1.5;
   color:var(--sidebar-label);
 }
-.sidebar-nav{padding:10px;}
+
+/* =====================================================
+   SIDEBAR NAV
+   ===================================================== */
+.sidebar-nav{
+  padding:8px 9px 12px;
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  gap:1px;
+}
+.nav-section{
+  display:flex;
+  flex-direction:column;
+  gap:1px;
+  margin-bottom:4px;
+  padding-bottom:4px;
+}
+.nav-section + .nav-section {
+  border-top: 1px solid var(--sidebar-divider);
+  padding-top: 4px;
+}
+.nav-section:last-child{margin-bottom:0;}
+.nav-group-label{
+  padding:10px 10px 5px 12px;
+  font-size:9px;
+  font-weight:700;
+  letter-spacing:1.6px;
+  text-transform:uppercase;
+  color:var(--sidebar-group-label);
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.nav-group-label::before {
+  content: '';
+  display:inline-block;
+  width:12px;
+  height:1px;
+  background: var(--sidebar-divider);
+  flex-shrink:0;
+}
 .nav-item{
   display:flex;
   align-items:center;
-  padding:9px 10px 9px 13px;
-  border-radius:5px;
-  margin-bottom:2px;
+  gap:9px;
+  padding:6px 10px 6px 12px;
+  border-radius:3px;
   cursor:pointer;
   font-size:12.5px;
   font-weight:500;
-  color:var(--sidebar-label);
-  transition:background 0.15s,color 0.15s;
-  border-left:3px solid transparent;
+  color:rgba(241,238,230,0.55);
+  transition:background 0.12s,color 0.12s;
+  border:none;
+  border-left:2px solid transparent;
+  background:transparent;
+  text-align:left;
+  width:100%;
+  letter-spacing:0;
+  text-transform:none;
+  line-height:1.3;
 }
 .nav-item:hover{background:var(--sidebar-hover-bg);color:var(--sidebar-text);}
 .nav-item.active{
@@ -192,37 +272,68 @@ body{
   border-left-color:var(--sidebar-active-text);
   font-weight:600;
 }
+.nav-item:focus-visible{outline:1px solid var(--sidebar-active-text);outline-offset:-1px;}
+.nav-icon{
+  width:15px;height:15px;
+  display:inline-grid;place-items:center;
+  color:currentColor;
+  opacity:.65;
+  flex-shrink:0;
+}
+.nav-icon svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}
+.nav-item.active .nav-icon{opacity:1;}
+.nav-count{
+  margin-left:auto;
+  font-size:9px;
+  font-weight:700;
+  font-family:var(--mono);
+  color:var(--sidebar-group-label);
+  background:rgba(255,255,255,0.06);
+  padding:1px 5px;
+  border-radius:2px;
+  letter-spacing:.3px;
+  font-variant-numeric:tabular-nums;
+}
+.nav-count.alert{color:#fff;background:var(--block-bg);}
+.nav-count.warn{color:#fff;background:var(--warning-bg);}
+.nav-badge{
+  margin-left:auto;
+  font-size:9px;
+  font-weight:700;
+  font-family:var(--mono);
+  color:var(--sidebar-group-label);
+  background:rgba(255,255,255,0.06);
+  padding:1px 5px;
+  border-radius:2px;
+  letter-spacing:.3px;
+}
+.nav-badge.live{
+  color:var(--sidebar-active-text);
+  background:rgba(198,146,75,0.12);
+  animation:pulse-badge 2s ease-in-out infinite;
+}
+@keyframes pulse-badge{0%,100%{opacity:1;}50%{opacity:.55;}}
+
+/* =====================================================
+   SIDEBAR BOTTOM
+   ===================================================== */
 .sidebar-bottom{
-  padding:14px 18px;
+  padding:12px 14px;
   border-top:1px solid var(--sidebar-divider);
   display:flex;
   flex-direction:column;
-  gap:13px;
-}
-.status-indicator{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  font-size:11.5px;
-  font-weight:500;
-  color:var(--sidebar-label);
-}
-.status-dot{
-  width:7px;height:7px;
-  border-radius:50%;
-  background:var(--warning);
+  gap:10px;
   flex-shrink:0;
-  transition:background 0.3s;
+  background:rgba(0,0,0,0.1);
 }
-.status-dot.live{background:var(--allow);}
 .sidebar-label{
   display:block;
-  font-size:10px;
+  font-size:9.5px;
   font-weight:700;
   text-transform:uppercase;
-  letter-spacing:0.7px;
-  color:var(--sidebar-label);
-  margin-bottom:5px;
+  letter-spacing:.7px;
+  color:var(--sidebar-group-label);
+  margin-bottom:4px;
 }
 .sidebar-input{
   font:inherit;
@@ -230,202 +341,680 @@ body{
   background:var(--sidebar-input-bg);
   border:1px solid var(--sidebar-input-border);
   color:var(--sidebar-text);
-  border-radius:5px;
-  padding:7px 10px;
+  border-radius:4px;
+  padding:6px 9px;
   width:100%;
-  transition:border-color 0.15s;
+  transition:border-color 0.12s;
 }
 .sidebar-input:focus{outline:none;border-color:var(--sidebar-active-text);}
-.sidebar-input::placeholder{color:rgba(241,238,230,0.28);}
-.theme-toggle-btn{
-  font:600 11.5px/1 var(--font);
-  background:transparent;
-  border:1px solid rgba(255,255,255,0.11);
-  color:var(--sidebar-label);
-  border-radius:5px;
-  padding:7px 10px;
-  cursor:pointer;
-  text-align:left;
-  transition:background 0.15s,color 0.15s,border-color 0.15s;
-  width:100%;
+.sidebar-input::placeholder{color:rgba(241,238,230,0.22);}
+.sidebar-bottom-row{display:flex;align-items:center;gap:8px;justify-content:space-between;}
+.sidebar-system{
+  display:flex;flex-direction:column;gap:3px;
+  padding:8px 10px;
+  border:1px solid var(--sidebar-divider);
+  border-radius:4px;
+  background:rgba(0,0,0,0.18);
 }
-.theme-toggle-btn:hover{background:var(--sidebar-hover-bg);color:var(--sidebar-text);border-color:rgba(255,255,255,0.2);}
-.theme-toggle-btn:focus-visible{outline:2px solid var(--sidebar-active-text);outline-offset:2px;}
-
-/* =====================================================
-   HEALTH BAR
-   ===================================================== */
-.health-bar{
-  background:var(--surface);
-  border-bottom:1px solid var(--border);
-  padding:8px 32px;
+.sidebar-system-row{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  font-size:10px;color:var(--sidebar-label);
+}
+.sidebar-system-row strong{
+  font:700 10px var(--mono);color:var(--sidebar-text);
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+.sidebar-system-row strong.ok{color:var(--allow);}
+.sidebar-system-row strong.bad{color:var(--block);}
+.status-indicator{
   display:flex;
   align-items:center;
-  justify-content:space-between;
-  font-size:11.5px;
-  gap:16px;
-  flex-shrink:0;
+  gap:7px;
+  font-size:11px;
+  color:var(--sidebar-label);
 }
-.health-bar-left{display:flex;align-items:center;gap:9px;flex-wrap:wrap;min-width:0;}
-.health-bar-right{display:flex;align-items:center;gap:14px;flex-shrink:0;}
-.health-dot{
-  width:7px;height:7px;
+.status-dot{
+  width:6px;height:6px;
   border-radius:50%;
-  display:inline-block;
+  background:var(--warning);
   flex-shrink:0;
   transition:background 0.3s;
 }
-.health-dot--ok{background:var(--allow);}
-.health-dot--warn{background:var(--warning);}
-.health-dot--crit{background:var(--block);}
-.health-dot--muted{background:var(--muted);}
-.health-status-text{font-size:10.5px;font-weight:700;letter-spacing:0.7px;text-transform:uppercase;}
-.health-status-text.ok{color:var(--allow);}
-.health-status-text.warn{color:var(--warning);}
-.health-status-text.crit{color:var(--block);}
-.health-sep{color:var(--border);font-weight:400;user-select:none;}
-.health-item{color:var(--text-secondary);font-size:11.5px;}
+.status-dot.live{background:var(--allow);}
+.theme-toggle-btn{
+  font:600 10.5px/1 var(--font);
+  background:transparent;
+  border:1px solid rgba(255,255,255,0.1);
+  color:var(--sidebar-label);
+  border-radius:4px;
+  padding:5px 9px;
+  cursor:pointer;
+  transition:background 0.12s,color 0.12s;
+  white-space:nowrap;
+  letter-spacing:0;
+  text-transform:none;
+}
+.theme-toggle-btn:hover{background:var(--sidebar-hover-bg);color:var(--sidebar-text);border-color:rgba(255,255,255,0.18);}
+.theme-toggle-btn:focus-visible{outline:1px solid var(--sidebar-active-text);outline-offset:2px;}
+
+/* =====================================================
+   SYSTEM STATUS BAR (top rail)
+   ===================================================== */
+.status-bar{
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  padding:0 30px;
+  display:flex;
+  align-items:center;
+  height:36px;
+  gap:0;
+  flex-shrink:0;
+  font-size:11px;
+}
+.status-bar-left{display:flex;align-items:center;gap:10px;flex:1;min-width:0;}
+.status-bar-right{display:flex;align-items:center;gap:14px;flex-shrink:0;}
+.status-segment{display:flex;align-items:center;gap:6px;color:var(--text-secondary);}
+.status-segment + .status-segment::before{content:'·';color:var(--border);margin-right:4px;}
+.status-dot-sm{width:6px;height:6px;border-radius:50%;flex-shrink:0;transition:background 0.3s;}
+.status-dot-ok{background:var(--allow);}
+.status-dot-warn{background:var(--warning);}
+.status-dot-crit{background:var(--block);}
+.status-dot-muted{background:var(--muted);}
+.status-state{
+  font-size:10.5px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;
+}
+.status-state.ok{color:var(--allow);}
+.status-state.warn{color:var(--warning);}
+.status-state.crit{color:var(--block);}
+.status-state.muted{color:var(--muted);}
 .health-dryrun{
   display:none;
   align-items:center;
-  gap:5px;
+  gap:4px;
   background:var(--warning-bg);
   color:#fff;
-  font-size:10px;
+  font-size:9.5px;
   font-weight:700;
   text-transform:uppercase;
-  letter-spacing:0.6px;
-  padding:2px 8px;
+  letter-spacing:.5px;
+  padding:2px 7px;
   border-radius:3px;
 }
-.health-ws{display:flex;align-items:center;gap:6px;color:var(--text-secondary);font-size:11px;}
 
 /* =====================================================
    MAIN CONTENT
    ===================================================== */
 .main-content{
-  flex:1;
-  overflow-y:auto;
-  padding:32px 36px;
-  display:flex;
-  flex-direction:column;
-  gap:36px;
+  max-width:1560px;
+  width:100%;
+  margin:0 auto;
+  padding:0 32px 48px;
 }
+
+/* =====================================================
+   PAGE MASTHEAD
+   ===================================================== */
+.page-masthead{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  gap:24px;
+  padding:24px 0 18px;
+  border-bottom:1px solid var(--border);
+  margin-bottom:0;
+}
+.page-eyebrow{
+  margin:0 0 4px;
+  font:700 9.5px var(--mono);
+  letter-spacing:.8px;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.page-title{
+  margin:0;
+  font-size:21px;
+  line-height:1.15;
+  letter-spacing:-.35px;
+  color:var(--text-primary);
+  font-weight:700;
+}
+.page-description{
+  margin:5px 0 0;
+  font-size:12px;
+  color:var(--text-secondary);
+  max-width:580px;
+  line-height:1.5;
+}
+.page-meta{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  font:700 10px var(--mono);
+  letter-spacing:.5px;
+  text-transform:uppercase;
+  color:var(--text-secondary);
+  flex-shrink:0;
+  white-space:nowrap;
+}
+
+/* =====================================================
+   CONSOLE VIEWS (routing)
+   ===================================================== */
+.console-view{display:none;padding-top:24px;}
+.console-view.active{display:block;}
 
 /* =====================================================
    SECTION STRUCTURE
    ===================================================== */
 .section{min-width:0;}
+.section + .section{margin-top:28px;}
 .section-header{
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:12px;
-  padding-bottom:10px;
+  padding-bottom:9px;
   border-bottom:1px solid var(--border);
-  margin-bottom:16px;
+  margin-bottom:14px;
 }
-h2{
+.section-h{
   font-size:10.5px;
   font-weight:700;
   margin:0;
   text-transform:uppercase;
-  letter-spacing:0.8px;
+  letter-spacing:.8px;
   color:var(--text-secondary);
   flex:1;
 }
-.section-header-meta{
-  font-size:10.5px;
+.section-meta{
+  font-size:10px;
   font-weight:700;
   color:var(--muted);
   text-transform:uppercase;
-  letter-spacing:0.5px;
+  letter-spacing:.5px;
   flex-shrink:0;
 }
 .section-badge{
-  display:inline-flex;
-  align-items:center;
-  font-size:9px;font-weight:700;
-  text-transform:uppercase;
-  letter-spacing:0.5px;
-  background:var(--allow-bg);
-  color:#fff;
-  padding:2px 6px;
-  border-radius:3px;
-  margin-left:8px;
-  vertical-align:middle;
-  position:relative;top:-1px;
+  display:inline-flex;align-items:center;
+  font-size:8.5px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.5px;
+  background:var(--allow-bg);color:#fff;
+  padding:2px 5px;border-radius:2px;
+  margin-left:7px;vertical-align:middle;position:relative;top:-1px;
 }
 
 /* =====================================================
-   GRIDS
+   OVERVIEW — SOC COMMAND CENTER
    ===================================================== */
-.grid-feed-sim{display:grid;grid-template-columns:1.3fr 0.7fr;gap:36px;align-items:start;}
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:start;}
-
-/* =====================================================
-   METRICS
-   ===================================================== */
-.metrics-container{display:flex;align-items:flex-start;gap:0;flex-wrap:wrap;}
+/* Posture metric display */
+.posture-metrics{display:flex;align-items:flex-start;gap:0;flex-wrap:nowrap;overflow-x:auto;}
+.posture-block{display:flex;flex-direction:column;gap:7px;padding-right:20px;flex-shrink:0;}
+.posture-block + .posture-block{padding-left:20px;border-left:1px solid var(--border);}
+.posture-group-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--muted);margin-bottom:2px;}
+.posture-row{display:flex;gap:16px;align-items:flex-end;}
+.metric-item{display:flex;flex-direction:column;gap:2px;min-width:40px;}
+.metric-value{font-size:22px;font-weight:700;line-height:1;color:var(--text-primary);font-variant-numeric:tabular-nums;}
+.metric-value-unit{font-size:11px;font-weight:500;color:var(--muted);margin-left:1px;}
+.metric-label{font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
 .metrics-loading{color:var(--muted);font-size:12px;padding:6px 0;}
-.metrics-block{display:flex;flex-direction:column;gap:9px;padding-right:28px;}
-.metrics-group-header{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);}
-.metrics-row{display:flex;gap:22px;align-items:flex-end;}
-.metrics-sep{width:1px;background:var(--border);align-self:stretch;min-height:44px;flex-shrink:0;margin:0 4px 0 0;}
-.metric-item{display:flex;flex-direction:column;gap:4px;min-width:52px;}
-.metric-value{font-size:22px;font-weight:600;line-height:1.1;color:var(--text-primary);font-variant-numeric:tabular-nums;}
-.metric-value-unit{font-size:12px;font-weight:500;color:var(--muted);margin-left:1px;}
-.metric-label{font-size:10px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.6px;}
+
+/* Attention queue — live triage list driven by session decisions (no mock data) */
+.attention-list{display:flex;flex-direction:column;gap:0;}
+.attention-row{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;
+  gap:4px 8px;align-items:center;
+  width:100%;text-align:left;background:transparent;
+  border:none;border-bottom:1px solid var(--border);
+  border-left:2px solid transparent;border-radius:0;
+  padding:9px 16px;cursor:pointer;
+  text-transform:none;letter-spacing:0;
+}
+.attention-row:last-child{border-bottom:none;}
+.attention-row:hover{background:var(--surface-elevated);}
+.attention-row:focus-visible{outline:1px solid var(--sidebar-active-text);outline-offset:-2px;}
+.attention-row.attn-block{border-left-color:var(--block);}
+.attention-row.attn-stepup{border-left-color:var(--info);}
+.attention-row.attn-monitor{border-left-color:var(--warning);}
+.attention-route{font:600 11px var(--mono);color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.attention-reason{font-size:10.5px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.attention-risk{font:700 11px var(--mono);text-align:right;white-space:nowrap;}
+.attention-inspect{font:700 9px var(--mono);text-transform:uppercase;letter-spacing:.5px;color:var(--sidebar-active-text);text-align:right;}
+.attention-empty{
+  display:flex;gap:10px;align-items:flex-start;
+}
+.attention-mark{
+  width:22px;height:22px;min-width:22px;
+  border:1px solid var(--border);
+  border-radius:50%;display:grid;place-items:center;
+  color:var(--muted);font-weight:700;font-size:11px;
+  flex-shrink:0;margin-top:1px;
+}
+.attention-empty-title{font-size:12px;font-weight:700;margin:0 0 2px;color:var(--text-primary);}
+.attention-empty-body{font-size:11.5px;color:var(--text-secondary);line-height:1.45;margin:0;}
+.data-boundary{
+  font:700 9px var(--mono);
+  text-transform:uppercase;
+  letter-spacing:.4px;
+  color:var(--muted);
+  margin-top:7px;
+}
+
+/* Overview grid layout */
+.overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) 320px;
+  gap: 0;
+  border-top: 1px solid var(--border);
+}
+.overview-col-main {
+  min-width:0;
+  border-right: 1px solid var(--border);
+}
+.overview-col-side { min-width:0; }
+.overview-section {
+  border-bottom: 1px solid var(--border);
+}
+.overview-section:last-child { border-bottom: none; }
+.overview-section-header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:9px 16px;
+  border-bottom:1px solid var(--border);
+  background:var(--table-header-bg);
+}
+.overview-section-h {
+  font-size:9.5px;
+  font-weight:700;
+  margin:0;
+  text-transform:uppercase;
+  letter-spacing:.8px;
+  color:var(--text-secondary);
+}
+.overview-posture-inner {
+  padding: 16px;
+}
+.overview-kicker{
+  font:700 9.5px var(--mono);
+  letter-spacing:.8px;
+  text-transform:uppercase;
+  color:var(--muted);
+  margin:0 0 10px;
+  display:block;
+}
+
+/* Decision distribution bar (authoritative REST counts — proportions only, never recomputed verdicts) */
+.distribution-bar{display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--code-bg);margin:0 16px 12px;}
+.distribution-bar span{display:block;height:100%;}
+.distribution-legend{display:flex;flex-wrap:wrap;gap:4px 12px;padding:0 16px 14px;font:600 10px var(--mono);color:var(--muted);}
+.distribution-legend b{font-weight:700;}
+
+/* Recent activity timeline — clickable triage rows */
+.activity-timeline{display:flex;flex-direction:column;gap:0;}
+.activity-row{
+  display:grid;
+  grid-template-columns:64px minmax(0,1fr) auto 86px;
+  gap:8px;
+  align-items:center;
+  padding:7px 16px;
+  border-bottom:1px solid var(--border);
+  font-size:12px;
+  font-family:var(--mono);
+  width:100%;background:transparent;border-left:none;border-right:none;border-top:none;
+  cursor:pointer;text-align:left;text-transform:none;letter-spacing:0;border-radius:0;
+}
+.activity-row:hover{background:var(--surface-elevated);}
+.activity-row:focus-visible{outline:1px solid var(--sidebar-active-text);outline-offset:-2px;}
+.activity-row:last-child{border-bottom:none;}
+.activity-time{font:700 10px var(--mono);color:var(--muted);}
+.activity-route{font-family:var(--mono);font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-primary);}
+.activity-empty{
+  padding:18px 16px;
+  color:var(--muted);
+  font-size:12px;
+}
+
+/* Analyst guidance */
+.analyst-guide{
+  display:flex;gap:10px;align-items:flex-start;
+}
 
 /* =====================================================
-   EVENT FEED
+   LIVE OPERATIONS
    ===================================================== */
+.ops-layout{
+  display:grid;
+  grid-template-columns:minmax(0,1.3fr) 340px;
+  gap:28px;
+  align-items:start;
+}
+
+/* Event feed */
+.feed-toolbar{
+  display:flex;
+  align-items:center;
+  gap:7px;
+}
+.feed-toolbar-note{
+  font-size:10px;
+  color:var(--muted);
+  margin-right:auto;
+  font-family:var(--mono);
+  text-transform:uppercase;
+  letter-spacing:.4px;
+}
+.feed-filter,.feed-search{
+  font:inherit;
+  font-size:11px;
+  color:var(--text-primary);
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:4px;
+  padding:5px 7px;
+  min-width:0;
+}
+.feed-search{width:136px;}
+.feed-filter:focus,.feed-search:focus{
+  outline:1px solid var(--sidebar-active-text);
+  outline-offset:0;
+  border-color:var(--sidebar-active-text);
+}
 .event-stream{
   background:var(--surface);
   border:1px solid var(--border);
-  border-radius:6px;
-  box-shadow:var(--shadow-sm);
-  max-height:500px;
+  max-height:calc(100vh - 320px);
   overflow-y:auto;
 }
-.feed-empty{padding:36px 24px;text-align:center;color:var(--muted);font-size:12.5px;}
+.event-stream-header {
+  display:grid;
+  grid-template-columns:65px 75px minmax(180px,1fr) minmax(180px,1fr) 45px;
+  gap:12px;
+  padding:6px 12px;
+  border-bottom:2px solid var(--border);
+  background:var(--table-header-bg);
+  font-size:9px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.8px;
+  color:var(--text-secondary);
+  font-family:var(--font);
+  position:sticky;
+  top:0;
+  z-index:2;
+}
+.feed-empty{
+  padding:32px 20px;
+  text-align:center;
+  color:var(--muted);
+  font-size:12px;
+}
+
+/* Event rows */
 .event-row{
   display:grid;
-  grid-template-columns:96px minmax(0,1fr) minmax(0,1.4fr) 68px;
+  grid-template-columns:65px 75px minmax(180px,1fr) minmax(180px,1fr) 45px;
   border-bottom:1px solid var(--border);
-  border-left:2px solid transparent;
-  align-items:start;
-  font-size:12.5px;
-  transition:background 0.12s;
-  cursor:default;
+  border-left:3px solid transparent;
+  align-items:center;
+  font-size:11px;
+  font-family:var(--mono);
+  transition:background 0.1s;
+  cursor:pointer;
+  background:transparent;
+  text-align:left;
+  width:100%;
+  letter-spacing:0;
+  text-transform:none;
+  padding:7px 12px;
+  border-top:0;
+  border-right:0;
+  gap: 12px;
 }
 .event-row:hover{background:var(--surface-elevated);}
 .event-row:last-child{border-bottom:none;}
-.event-col-decision{padding:10px 12px 10px 10px;display:flex;flex-direction:column;gap:5px;align-items:flex-start;}
-.event-col-service{padding:10px 10px 10px 0;display:flex;align-items:flex-start;min-width:0;}
-.event-col-detail{padding:10px 10px 10px 0;display:flex;flex-direction:column;gap:3px;min-width:0;}
-.event-col-risk{padding:10px 12px 10px 0;display:flex;align-items:flex-start;justify-content:flex-end;}
-.event-time{color:var(--muted);font-size:10.5px;font-variant-numeric:tabular-nums;}
+.event-row.selected{background:var(--surface-elevated);}
+.event-row:focus-visible{outline:1px solid var(--sidebar-active-text);outline-offset:-2px;position:relative;z-index:1;}
+.event-col-risk{display:flex;align-items:center;justify-content:flex-end;}
+.event-time{color:var(--muted);font-size:10px;font-variant-numeric:tabular-nums;font-family:var(--mono);white-space:nowrap;}
 .event-service{font-family:var(--mono);font-size:11px;color:var(--text-primary);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;}
 .event-arrow{color:var(--muted);font-weight:400;}
-.event-reason{font-weight:700;color:var(--text-primary);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.event-path{font-family:var(--mono);font-size:11px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.risk-score{font-size:11.5px;font-weight:700;white-space:nowrap;}
+.event-reason{font-weight:700;color:var(--text-primary);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.event-path{font-family:var(--mono);font-size:10.5px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.risk-score{font-size:11px;font-weight:700;white-space:nowrap;font-family:var(--mono);}
 .risk-high{color:var(--block);}
 .risk-medium{color:var(--warning);}
 
+/* Investigation panel */
+.investigation-panel{
+  background:var(--surface);
+  border:1px solid var(--border);
+  position:sticky;
+  top:0;
+  min-height:360px;
+}
+.investigation-empty{
+  padding:28px 16px;
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.55;
+}
+.inv-workspace {
+  display:flex; flex-direction:column;
+}
+.inv-header {
+  padding:16px;
+  border-bottom:1px solid var(--border);
+  background:var(--table-header-bg);
+}
+.inv-id { font:700 12px var(--mono); color:var(--text-primary); word-break:break-all; margin-bottom: 4px; }
+.inv-meta { font-size:11px; color:var(--text-secondary); font-family:var(--mono); }
+
+.inv-section {
+  padding: 16px;
+  border-bottom: 1px dashed var(--border);
+}
+.inv-section:last-child { border-bottom: none; }
+.inv-h {
+  font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1px;
+  color:var(--text-secondary); margin-bottom:12px;
+}
+.inv-data { font-size:12px; line-height:1.5; color:var(--text-primary); }
+
+.inv-identity-grid {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 8px 12px;
+  font-size: 12px;
+}
+.inv-grid-label { color: var(--muted); font-family: var(--mono); font-size:11px; text-transform:uppercase; }
+.inv-grid-val { color: var(--text-primary); font-family: var(--mono); font-weight:600; word-break:break-all; }
+
+/* Factor chips */
+.factor-list{display:flex;flex-wrap:wrap;gap:4px;}
+.factor-chip{
+  font:700 10px/1.2 var(--mono);
+  padding:3px 5px;
+  border:1px solid var(--code-border);
+  border-radius:3px;
+  background:var(--code-bg);
+  color:var(--code-text);
+}
+
+/* Stage timeline */
+.stage-timeline{margin:0;padding:0;list-style:none;border-left:1px solid var(--border);}
+.stage-row{position:relative;padding:0 0 10px 13px;font-size:11.5px;color:var(--text-secondary);line-height:1.4;}
+.stage-row:last-child{padding-bottom:0;}
+.stage-row::before{content:'';position:absolute;left:-4px;top:4px;width:6px;height:6px;border-radius:50%;background:var(--info);border:1px solid var(--surface);}
+.stage-name{font:700 10px var(--mono);color:var(--muted);margin-right:5px;}
+
+/* Assessment boundary notice */
+.assessment-boundary{
+  border-top:1px dashed var(--border);
+  padding-top:10px;
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.45;
+}
+
 /* =====================================================
-   ATTACK SIMULATOR
+   IN-VIEW SUB-SECTION TABS
    ===================================================== */
-.sim-description{font-size:12px;color:var(--text-secondary);margin-bottom:14px;line-height:1.5;}
-.sim-summary{padding:9px 14px;border-radius:5px;font-size:12px;font-weight:700;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.4px;}
-.sim-summary--pass{background:rgba(82,122,91,0.11);color:var(--allow);border:1px solid rgba(82,122,91,0.22);}
-.sim-summary--fail{background:rgba(166,61,64,0.11);color:var(--block);border:1px solid rgba(166,61,64,0.22);}
-.scenarios-list{max-height:460px;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:6px;box-shadow:var(--shadow-sm);}
+.view-tabs{
+  display:flex;
+  align-items:center;
+  gap:0;
+  border-bottom:1px solid var(--border);
+  margin-bottom:22px;
+  overflow-x:auto;
+}
+.view-tab{
+  padding:10px 16px;
+  font-size:12px;
+  font-weight:600;
+  color:var(--text-secondary);
+  cursor:pointer;
+  border:none;
+  border-bottom:2px solid transparent;
+  background:transparent;
+  text-transform:none;
+  letter-spacing:0;
+  line-height:1.2;
+  white-space:nowrap;
+  margin-bottom:-1px;
+  transition:color 0.12s,border-color 0.12s;
+}
+.view-tab:hover{color:var(--text-primary);}
+.view-tab.active{color:var(--sidebar-active-text);border-bottom-color:var(--sidebar-active-text);}
+.view-tab:focus-visible{outline:1px solid var(--sidebar-active-text);outline-offset:-2px;}
+.sub-view{display:none;}
+.sub-view.active{display:block;}
+
+/* =====================================================
+   THREAT INTELLIGENCE VIEWS
+   ===================================================== */
+.intel-empty-state{
+  padding:40px 0;
+  border-bottom:1px solid var(--border);
+}
+.intel-empty-state:last-child{border-bottom:none;}
+.intel-empty-icon {
+  width:36px;
+  height:36px;
+  border:1px solid var(--border);
+  border-radius:50%;
+  margin-bottom:14px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  color:var(--muted);
+  font-size:14px;
+  background:var(--surface);
+}
+/* Risk meter (display only — value is always the authoritative pipeline score) */
+.risk-meter{display:flex;align-items:center;gap:8px;min-width:0;}
+.risk-meter-track{flex:1;height:5px;border-radius:3px;background:var(--code-bg);overflow:hidden;min-width:40px;}
+.risk-meter-fill{display:block;height:100%;background:var(--allow);}
+.risk-meter-fill.elevated{background:var(--warning);}
+.risk-meter-fill.critical{background:var(--block);}
+.risk-meter-value{font:700 11px var(--mono);white-space:nowrap;}
+.intel-state-title{margin:0 0 6px;font-size:13px;font-weight:700;color:var(--text-primary);}
+.intel-state-body{margin:0 0 12px;color:var(--text-secondary);font-size:12px;line-height:1.55;max-width:600px;}
+.intel-will-list{
+  margin:0 0 4px;padding:0;list-style:none;max-width:600px;
+  border:1px solid var(--border);background:var(--surface);
+}
+.intel-will-list li{
+  padding:8px 12px;font-size:11.5px;color:var(--text-secondary);line-height:1.5;
+  border-bottom:1px solid var(--border);
+}
+.intel-will-list li:last-child{border-bottom:none;}
+.intel-will-list b{color:var(--text-primary);}
+.intel-schema-table{
+  display:grid;
+  grid-template-columns:160px 1fr 1fr;
+  border:1px solid var(--border);
+  max-width:560px;
+}
+.intel-schema-header{
+  padding:8px 12px;
+  font-size:9.5px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.6px;
+  color:var(--text-secondary);
+  background:var(--table-header-bg);
+  border-bottom:1px solid var(--border);
+}
+.intel-schema-row{
+  padding:9px 12px;
+  font-size:11.5px;
+  color:var(--text-secondary);
+  border-bottom:1px solid var(--border);
+  display:contents;
+}
+.intel-schema-row > span{
+  padding:8px 12px;
+  border-bottom:1px solid var(--border);
+}
+.intel-schema-row:last-child > span{border-bottom:none;}
+.intel-schema-field{color:var(--text-primary);font-family:var(--mono);font-size:11px;}
+.intel-schema-type{font:700 10px var(--mono);text-transform:uppercase;color:var(--muted);}
+.intel-schema-status{font:700 9.5px var(--mono);text-transform:uppercase;color:var(--muted);}
+.intel-contract-notice{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size:11px;
+  color:var(--muted);
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:4px;
+  padding:6px 10px;
+  margin-top:10px;
+}
+.intel-contract-notice strong{color:var(--text-primary);}
+
+/* =====================================================
+   MESH VIEWS
+   ===================================================== */
+.mesh-stats-row{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  border:1px solid var(--border);
+  background:var(--surface);
+  margin-bottom:22px;
+}
+.mesh-stat{
+  padding:14px 16px;
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;gap:3px;
+}
+.mesh-stat:last-child{border-right:none;}
+.mesh-stat-value{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text-primary);}
+.mesh-stat-label{font:700 9.5px var(--mono);letter-spacing:.5px;text-transform:uppercase;color:var(--muted);}
+
+/* =====================================================
+   SECURITY CONTROLS — SEPARATE SUB-VIEWS
+   ===================================================== */
+/* Simulator */
+.sim-description{font-size:12px;color:var(--text-secondary);margin-bottom:12px;line-height:1.5;}
+.sim-summary{
+  padding:8px 13px;border-radius:4px;
+  font-size:11.5px;font-weight:700;
+  margin-bottom:12px;text-transform:uppercase;letter-spacing:.4px;
+}
+.sim-summary--pass{background:rgba(82,122,91,0.1);color:var(--allow);border:1px solid rgba(82,122,91,0.2);}
+.sim-summary--fail{background:rgba(166,61,64,0.1);color:var(--block);border:1px solid rgba(166,61,64,0.2);}
+.scenarios-list{
+  background:var(--surface);
+  border:1px solid var(--border);
+  max-height:520px;
+  overflow-y:auto;
+}
 .sim-group-label{
   padding:7px 14px;
   font-size:9.5px;font-weight:700;
-  text-transform:uppercase;letter-spacing:0.8px;
+  text-transform:uppercase;letter-spacing:.8px;
   color:var(--muted);
   background:var(--table-header-bg);
   border-bottom:1px solid var(--border);
@@ -435,185 +1024,225 @@ h2{
 .sim-scenario:last-child{border-bottom:none;}
 .sim-scenario--normal{border-left-color:var(--allow);}
 .sim-scenario--attack{border-left-color:var(--block);}
-.sim-row{display:flex;gap:10px;padding:11px 14px 11px 11px;justify-content:space-between;align-items:flex-start;}
+.sim-row{display:flex;gap:10px;padding:10px 13px 10px 10px;justify-content:space-between;align-items:flex-start;}
 .sim-info{flex:1;min-width:0;}
-.sim-title{font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-primary);margin-bottom:3px;}
-.sim-desc{font-size:11.5px;color:var(--text-secondary);line-height:1.4;margin-bottom:4px;}
+.sim-title{font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-primary);margin-bottom:2px;}
+.sim-desc{font-size:11.5px;color:var(--text-secondary);line-height:1.4;margin-bottom:3px;}
 .sim-expected{font-size:10.5px;color:var(--muted);font-family:var(--mono);}
 .sim-expected span{color:var(--text-secondary);font-weight:600;}
-.sim-result{padding:10px 14px 12px;border-top:1px dashed var(--border);background:var(--surface-elevated);font-size:12px;font-family:var(--mono);}
-.sim-result-verdict{font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;}
+.sim-result{padding:9px 13px 11px;border-top:1px dashed var(--border);background:var(--surface-elevated);font-size:12px;font-family:var(--mono);}
+.sim-result-verdict{font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px;}
 .sim-step{display:flex;align-items:center;gap:8px;margin-top:5px;min-width:0;}
-.sim-step-label{color:var(--muted);font-size:10.5px;width:130px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sim-step-label{color:var(--muted);font-size:10.5px;width:120px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .sim-step-reason{flex:1;font-size:11px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.sim-step-risk{font-weight:700;font-size:11px;width:55px;text-align:right;flex-shrink:0;}
+.sim-step-risk{font-weight:700;font-size:11px;width:50px;text-align:right;flex-shrink:0;}
 
-/* =====================================================
-   CONTAINMENT
-   ===================================================== */
-.audit-chain-bar{display:flex;align-items:center;gap:8px;padding:8px 0 14px;font-size:12px;font-weight:600;min-height:38px;}
-.containment-empty{display:flex;align-items:center;gap:8px;padding:12px 0;font-size:12px;font-weight:700;color:var(--allow);text-transform:uppercase;letter-spacing:0.4px;}
+/* Containment */
+.audit-chain-bar{display:flex;align-items:center;gap:8px;padding:8px 0 14px;font-size:12px;font-weight:600;min-height:36px;}
+.containment-empty{display:flex;align-items:center;gap:8px;padding:10px 0;font-size:12px;font-weight:700;color:var(--allow);text-transform:uppercase;letter-spacing:.4px;}
 
 /* =====================================================
    RECOMMENDATIONS
    ===================================================== */
-.recs-table{background:var(--surface);border:1px solid var(--border);border-radius:6px;box-shadow:var(--shadow-sm);overflow:hidden;}
-.recs-header-row{display:grid;grid-template-columns:86px 1fr;padding:8px 16px;background:var(--table-header-bg);border-bottom:1px solid var(--border);}
-.recs-header-cell{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-secondary);}
-.rec-row{display:grid;grid-template-columns:86px 1fr;padding:11px 16px;border-bottom:1px solid var(--border);align-items:start;transition:background 0.12s;}
+.recs-table{background:var(--surface);border:1px solid var(--border);overflow:hidden;}
+.recs-header-row{display:grid;grid-template-columns:86px 1fr;padding:8px 15px;background:var(--table-header-bg);border-bottom:1px solid var(--border);}
+.recs-header-cell{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-secondary);}
+.rec-row{display:grid;grid-template-columns:86px 1fr;padding:10px 15px;border-bottom:1px solid var(--border);align-items:start;transition:background 0.1s;}
 .rec-row:last-child{border-bottom:none;}
 .rec-row:hover{background:var(--surface-elevated);}
 .rec-type-cell{padding-right:10px;padding-top:1px;}
 .rec-finding{color:var(--text-primary);font-size:12.5px;line-height:1.45;}
-.recs-empty{padding:28px 16px;text-align:center;color:var(--muted);font-size:12.5px;line-height:1.5;}
+.recs-empty{padding:24px 15px;text-align:center;color:var(--muted);font-size:12px;line-height:1.5;}
 
 /* =====================================================
    TABLES
    ===================================================== */
-.table-container{background:var(--surface);border:1px solid var(--border);border-radius:6px;overflow-x:auto;box-shadow:var(--shadow-sm);}
+.table-container{background:var(--surface);border:1px solid var(--border);overflow-x:auto;}
 table{width:100%;border-collapse:collapse;font-size:13px;}
 th{
-  text-align:left;
-  padding:10px 16px;
+  text-align:left;padding:9px 15px;
   border-bottom:1px solid var(--border);
-  color:var(--text-secondary);
-  font-weight:700;
-  text-transform:uppercase;
-  letter-spacing:0.5px;
-  font-size:10px;
+  color:var(--text-secondary);font-weight:700;
+  text-transform:uppercase;letter-spacing:.5px;
+  font-size:9.5px;
   background:var(--table-header-bg);
   white-space:nowrap;
 }
-td{text-align:left;padding:12px 16px;border-bottom:1px solid var(--border);vertical-align:top;}
+td{text-align:left;padding:11px 15px;border-bottom:1px solid var(--border);vertical-align:top;}
 tr:last-child td{border-bottom:none;}
 tbody tr:hover td{background:var(--surface-elevated);}
 code{
-  font-family:var(--mono);
-  font-size:11.5px;
-  background:var(--code-bg);
-  color:var(--code-text);
-  padding:2px 6px;
-  border-radius:3px;
+  font-family:var(--mono);font-size:11.5px;
+  background:var(--code-bg);color:var(--code-text);
+  padding:2px 5px;border-radius:3px;
   border:1px solid var(--code-border);
 }
-.deny-label{display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:var(--block);margin-bottom:3px;}
-.security-statement{margin-top:12px;font-size:11.5px;color:var(--text-secondary);line-height:1.4;}
+.deny-label{display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--block);margin-bottom:3px;}
+.security-statement{margin-top:10px;font-size:11.5px;color:var(--text-secondary);line-height:1.4;}
 
 /* =====================================================
    BADGES & STATUS
    ===================================================== */
 .badge{
   display:inline-flex;align-items:center;
-  padding:2px 7px;border-radius:3px;
-  font-size:9.5px;font-weight:700;line-height:1.35;
-  text-transform:uppercase;letter-spacing:0.5px;
+  padding:2px 6px;border-radius:3px;
+  font-size:9px;font-weight:700;line-height:1.4;
+  text-transform:uppercase;letter-spacing:.5px;
   white-space:nowrap;color:#fff;
 }
 .bg-ALLOW{background:var(--allow-bg);}
 .bg-MONITOR{background:var(--warning-bg);}
-.bg-STEP_UP_AUTH{background:var(--warning-bg);}
+.bg-STEP_UP_AUTH{background:var(--info-bg);}
 .bg-BLOCK{background:var(--block-bg);}
 .bg-INFO{background:var(--info-bg);}
 
 .ALLOW{color:var(--allow)!important;}
 .MONITOR{color:var(--warning)!important;}
-.STEP_UP_AUTH{color:var(--warning)!important;}
+.STEP_UP_AUTH{color:var(--info)!important;}
 .BLOCK{color:var(--block)!important;}
 .INFO{color:var(--info)!important;}
+
+/* Decision legend (Live Operations): text + swatch so meaning never relies on color alone */
+.decision-legend{
+  display:flex;flex-wrap:wrap;gap:6px 14px;
+  padding:8px 2px 10px;
+  font-size:10.5px;color:var(--text-secondary);line-height:1.5;
+}
+.decision-legend-item{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;}
+.decision-swatch{width:8px;height:8px;border-radius:2px;flex-shrink:0;}
+.decision-swatch.allow{background:var(--allow);}
+.decision-swatch.monitor{background:var(--warning);}
+.decision-swatch.stepup{background:var(--info);}
+.decision-swatch.block{background:var(--block);}
 
 /* =====================================================
    BUTTONS
    ===================================================== */
 .btn{
-  font:700 11.5px/1 var(--font);
-  border-radius:5px;padding:7px 14px;
+  font:700 11px/1 var(--font);
+  border-radius:4px;padding:7px 13px;
   cursor:pointer;
-  transition:background 0.15s,border-color 0.15s,color 0.15s;
-  text-transform:uppercase;letter-spacing:0.5px;
+  transition:background 0.12s,border-color 0.12s,color 0.12s;
+  text-transform:uppercase;letter-spacing:.5px;
   white-space:nowrap;display:inline-flex;align-items:center;gap:5px;
   border:1px solid transparent;text-decoration:none;
 }
-.btn:focus-visible{outline:2px solid var(--sidebar-active-text);outline-offset:2px;}
+.btn:focus-visible{outline:1px solid var(--sidebar-active-text);outline-offset:2px;}
 .btn:disabled{opacity:0.42;cursor:not-allowed;pointer-events:none;}
 .btn-primary{background:var(--btn-primary-bg);color:var(--btn-primary-text);border-color:var(--btn-primary-bg);}
 .btn-primary:hover:not(:disabled){background:var(--btn-primary-hover);border-color:var(--btn-primary-hover);}
 .btn-secondary{background:var(--btn-secondary-bg);color:var(--btn-secondary-text);border-color:var(--border);}
 .btn-secondary:hover:not(:disabled){background:var(--btn-secondary-hover);border-color:var(--text-secondary);}
-.btn-sm{font-size:10.5px;padding:5px 10px;}
+.btn-sm{font-size:10px;padding:5px 10px;}
 
-/* Fallback bare button */
-button{font:700 11.5px/1 var(--font);background:var(--btn-secondary-bg);color:var(--btn-secondary-text);border:1px solid var(--border);border-radius:5px;padding:7px 14px;cursor:pointer;transition:background 0.15s,border-color 0.15s;text-transform:uppercase;letter-spacing:0.5px;}
+/* Fallback bare button style */
+button{
+  font:700 11px/1 var(--font);
+  background:var(--btn-secondary-bg);
+  color:var(--btn-secondary-text);
+  border:1px solid var(--border);
+  border-radius:4px;padding:7px 13px;
+  cursor:pointer;
+  transition:background 0.12s,border-color 0.12s;
+  text-transform:uppercase;
+  letter-spacing:.5px;
+}
 button:hover{background:var(--btn-secondary-hover);border-color:var(--text-secondary);}
-button:focus-visible{outline:2px solid var(--sidebar-active-text);outline-offset:2px;}
+button:focus-visible{outline:1px solid var(--sidebar-active-text);outline-offset:2px;}
 
 /* =====================================================
    UTILS
    ===================================================== */
 .sub{color:var(--muted);font-size:11.5px;}
 .mono{font-family:var(--mono);}
+.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
 
 /* =====================================================
-   RESPONSIVE — ≤ 1279px Laptop
+   RESPONSIVE — ≤ 1280px Laptop
    ===================================================== */
-@media (max-width:1279px){
-  .layout-sidebar{width:210px;}
-  .main-content{padding:26px 28px;gap:28px;}
-  .grid-feed-sim{grid-template-columns:1.2fr 0.8fr;gap:28px;}
-  .grid-2{gap:28px;}
-  .health-bar{padding:8px 28px;}
+@media (max-width:1280px){
+  .layout-sidebar{width:225px;min-width:225px;}
+  .main-content{padding:0 24px 40px;}
+  .ops-layout{grid-template-columns:minmax(0,1.2fr) 300px;gap:22px;}
+  .overview-command-row{grid-template-columns:1fr 260px;}
+  .status-bar{padding:0 24px;}
 }
 
 /* =====================================================
-   RESPONSIVE — ≤ 1023px Tablet (top rail)
+   RESPONSIVE — ≤ 1024px Tablet (sidebar becomes topnav)
    ===================================================== */
-@media (max-width:1023px){
+@media (max-width:1024px){
   body{flex-direction:column;height:auto;overflow:auto;}
-  .layout-sidebar{width:100%;flex-direction:row;align-items:center;height:52px;flex-shrink:0;padding:0;}
-  .sidebar-header{padding:0 16px;border-bottom:none;border-right:1px solid var(--sidebar-divider);height:100%;display:flex;align-items:center;}
+  .layout-sidebar{
+    width:100%;min-width:0;
+    flex-direction:row;align-items:center;
+    height:50px;flex-shrink:0;
+    padding:0;overflow:visible;
+  }
+  .sidebar-header{
+    padding:0 14px;border-bottom:none;
+    border-right:1px solid var(--sidebar-divider);
+    height:100%;display:flex;align-items:center;
+  }
   .sidebar-tagline{display:none;}
-  .sidebar-brand{margin-bottom:0;font-size:12px;white-space:nowrap;}
-  .sidebar-nav{display:none;}
-  .sidebar-bottom{flex-direction:row;padding:0 14px;border-top:none;border-left:1px solid var(--sidebar-divider);gap:14px;flex:1;align-items:center;height:100%;}
-  .admin-key-group{display:flex;align-items:center;gap:8px;flex:1;}
-  .admin-key-group .sidebar-label{display:none;}
-  .sidebar-input{max-width:160px;}
-  .layout-main{overflow:visible;}
-  .main-content{padding:20px;gap:24px;overflow-y:visible;}
-  .grid-feed-sim{grid-template-columns:1fr;gap:24px;}
-  .grid-2{grid-template-columns:1fr;gap:24px;}
-  .event-stream{max-height:360px;}
-  .scenarios-list{max-height:380px;}
-  .metrics-container{flex-wrap:wrap;gap:20px;}
-  .metrics-sep{display:none;}
-  .health-bar{padding:8px 20px;}
+  .sidebar-wordmark{margin:0;}
+  .sidebar-nav{
+    flex-direction:row;overflow-x:auto;
+    gap:0;padding:0 8px;height:100%;
+    align-items:center;flex:1;
+  }
+  .nav-section{display:contents;}
+  .nav-group-label,.nav-icon,.nav-badge{display:none;}
+  .nav-item{width:auto;white-space:nowrap;padding:7px 10px;font-size:11.5px;margin-bottom:0;}
+  .sidebar-bottom{
+    flex-direction:row;margin-top:0;
+    background:transparent;
+    border-top:none;border-left:1px solid var(--sidebar-divider);
+    padding:0 12px;height:100%;align-items:center;
+    flex-shrink:0;gap:8px;
+  }
+  .sidebar-label{display:none;}
+  .sidebar-input{max-width:130px;}
+  .workspace{overflow:visible;}
+  .main-content{padding:0 18px 32px;}
+  .ops-layout{grid-template-columns:1fr;gap:20px;}
+  .investigation-panel{position:static;}
+  .overview-command-row{grid-template-columns:1fr;}
+  .overview-attention{border-left:none;padding-left:0;border-top:1px solid var(--border);padding-top:16px;}
+  .overview-command-grid{grid-template-columns:1fr;}
+  .command-col + .command-col{border-left:none;padding-left:0;border-top:1px solid var(--border);padding-top:16px;}
+  .mesh-stats-row{grid-template-columns:1fr 1fr;}
+  .status-bar{padding:0 18px;}
 }
 
 /* =====================================================
-   RESPONSIVE — ≤ 767px Mobile
+   RESPONSIVE — ≤ 768px Mobile
    ===================================================== */
-@media (max-width:767px){
-  .layout-sidebar{height:auto;flex-wrap:wrap;padding:10px 14px;gap:8px;}
+@media (max-width:768px){
+  .layout-sidebar{height:auto;flex-wrap:wrap;padding:8px 12px;gap:8px;}
   .sidebar-header{border-right:none;height:auto;padding:0;}
-  .sidebar-bottom{border-left:none;height:auto;padding:0;flex-wrap:wrap;gap:10px;width:100%;}
-  .admin-key-group{flex-direction:column;align-items:flex-start;gap:4px;}
-  .admin-key-group .sidebar-label{display:block;}
-  .sidebar-input{max-width:200px;}
-  .main-content{padding:14px;gap:20px;}
-  .event-stream{max-height:320px;}
-  .scenarios-list{max-height:300px;}
-  .event-row{display:flex;flex-direction:column;gap:3px;padding:10px 10px 10px 12px;}
-  .event-col-decision{flex-direction:row;align-items:center;gap:8px;padding:0;}
-  .event-col-service{padding:0;}
-  .event-col-detail{padding:0;}
-  .event-col-risk{display:none;}
+  .sidebar-nav{order:3;width:100%;height:36px;flex:none;padding:0;}
+  .sidebar-bottom{
+    order:2;width:auto;flex:1;justify-content:flex-end;
+    border-left:none;height:auto;padding:0;flex-wrap:wrap;
+  }
+  .main-content{padding:0 12px 24px;}
+  .event-stream{max-height:340px;}
+  .scenarios-list{max-height:320px;}
+  .event-row{display:flex;flex-direction:column;gap:3px;padding:9px 10px;align-items:stretch;}
+  .event-col-decision{flex-direction:row;align-items:center;gap:7px;padding:0;}
+  .event-col-service,.event-col-detail{padding:0;}
+  .event-col-risk{display:flex;justify-content:flex-start;}
   .table-container{overflow-x:auto;}
   table{min-width:480px;}
-  .metrics-container{flex-direction:column;gap:16px;}
-  .metrics-sep{display:none;}
-  .health-bar{flex-direction:column;align-items:flex-start;gap:6px;padding:10px 14px;}
-  .health-bar-right{align-self:flex-start;}
-  .health-bar-left{flex-wrap:wrap;}
-  .grid-feed-sim,.grid-2{grid-template-columns:1fr;gap:20px;}
+  .posture-metrics{flex-direction:column;gap:14px;}
+  .posture-block + .posture-block{border-left:none;padding-left:0;border-top:1px solid var(--border);padding-top:12px;}
+  .mesh-stats-row{grid-template-columns:1fr;}
+  .mesh-stat{border-right:none;border-bottom:1px solid var(--border);}
+  .mesh-stat:last-child{border-bottom:none;}
+  .status-bar{padding:0 12px;font-size:10.5px;}
+  .page-masthead{display:block;}
+  .page-title{font-size:18px;}
 }
 </style>
 </head>
@@ -621,107 +1250,545 @@ button:focus-visible{outline:2px solid var(--sidebar-active-text);outline-offset
 
 <aside class="layout-sidebar">
   <div class="sidebar-header">
-    <div class="sidebar-brand">Zero-Trust Mesh</div>
-    <div class="sidebar-tagline">Every request authenticated, authorised and scored. Nothing trusted by default.</div>
+    <div class="sidebar-wordmark">
+      <div class="sidebar-logo" aria-hidden="true">
+        <svg viewBox="0 0 14 14"><path d="M7 1l5 2.5v3.2c0 3-2.2 5-5 6.3-2.8-1.3-5-3.3-5-6.3V3.5z"/><path d="M4.8 7l1.6 1.6 2.8-3"/></svg>
+      </div>
+      <div>
+        <div class="sidebar-brand">Zero-Trust Mesh</div>
+        <div class="sidebar-product-sub">Security Operations Console</div>
+      </div>
+    </div>
+    <div class="sidebar-tagline">Default-deny enforcement · every decision explained</div>
   </div>
-  <nav class="sidebar-nav">
-    <div class="nav-item active">Security Operations</div>
+
+  <nav class="sidebar-nav" aria-label="Main navigation">
+
+    <div class="nav-section">
+      <div class="nav-group-label">Command</div>
+      <button class="nav-item active" data-view="overview" type="button" aria-current="page">
+        <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 14 14"><path d="M2 8l3-3 2 2 5-5"/><path d="M2 12h11"/></svg></span>Overview
+        <span class="nav-badge live" id="nav-badge-overview">LIVE</span>
+      </button>
+      <button class="nav-item" data-view="operations" type="button">
+        <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 14 14"><path d="M2 3h10M2 7h10M2 11h6"/></svg></span>Live Operations
+        <span class="nav-badge" id="nav-badge-ops">0</span>
+      </button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-group-label">Threat Intelligence</div>
+      <button class="nav-item" data-view="intelligence" data-sub="findings" type="button">
+        <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 14 14"><path d="M7 1.5l5 2.2v3c0 2.6-2 4.4-5 5.8-3-1.4-5-3.2-5-5.8v-3z"/><path d="M7 4.5v3"/></svg></span>Threat Findings
+      </button>
+      <button class="nav-item" data-view="intelligence" data-sub="investigations" type="button">
+        <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 14 14"><circle cx="6" cy="6" r="3.5"/><path d="M8.8 8.8L12.5 12.5"/></svg></span>Investigations
+      </button>
+      <button class="nav-item" data-view="intelligence" data-sub="categories" type="button">
+        <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 14 14"><path d="M2 2h4v4H2zM8 2h4v4H8zM2 8h4v4H2zM8 8h4v4H8z"/></svg></span>Threat Categories
+      </button>
+      <button class="nav-item" data-view="intelligence" data-sub="paths" type="button">
+        <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 14 14"><circle cx="3" cy="7" r="1.6"/><circle cx="11" cy="3.5" r="1.6"/><circle cx="11" cy="10.5" r="1.6"/><path d="M4.5 6.3l4.5-2M4.5 7.7l4.5 2"/></svg></span>Attack Paths
+      </button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-group-label">Zero-Trust Mesh</div>
+      <button class="nav-item" data-view="mesh" data-sub="map" type="button">
+        <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 14 14"><circle cx="7" cy="3" r="1.6"/><circle cx="3" cy="11" r="1.6"/><circle cx="11" cy="11" r="1.6"/><path d="M7 4.6v2.4M6 8.4L3.8 10M8 8.4l2.2 1.6M4.6 11h4.8"/></svg></span>Service Map
+        <span class="nav-count" id="nav-count-policies">—</span>
+      </button>
+      <button class="nav-item" data-view="mesh" data-sub="activity" type="button">
+        <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 14 14"><path d="M2 12V7M6 12V3M10 12V8M13 12H1"/></svg></span>Service Activity
+      </button>
+      <button class="nav-item" data-view="mesh" data-sub="anomalies" type="button">
+        <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 14 14"><path d="M7 1.8L13 12H1z"/><path d="M7 5.5v3M7 10.2v.3"/></svg></span>Behavioral Anomalies
+      </button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-group-label">Security Control</div>
+      <button class="nav-item" data-view="controls" data-sub="policies" type="button">
+        <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 14 14"><path d="M3 1.5h6l2 2v9H3z"/><path d="M5 7h4M5 9.5h4"/></svg></span>Policies
+      </button>
+      <button class="nav-item" data-view="controls" data-sub="containment" type="button">
+        <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 14 14"><rect x="2.5" y="2.5" width="9" height="9" rx="1"/><path d="M5.5 5.5l3 3M8.5 5.5l-3 3"/></svg></span>Containment
+        <span class="nav-count" id="nav-count-quarantine">0</span>
+      </button>
+      <button class="nav-item" data-view="controls" data-sub="audit" type="button">
+        <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 14 14"><path d="M4 1.5h5l2 2v9H4z"/><path d="M4 5.5h7M4 8h7M4 10.5h4"/></svg></span>Audit
+      </button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-group-label">Response</div>
+      <button class="nav-item" data-view="controls" data-sub="simulator" type="button">
+        <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 14 14"><path d="M4 2.5l7 4.5-7 4.5z"/></svg></span>Attack Simulator
+      </button>
+      <button class="nav-item" data-view="response" type="button">
+        <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 14 14"><path d="M7 12.5V2M3 6l4-4 4 4"/></svg></span>Recommendations
+        <span class="nav-count" id="nav-count-recs">—</span>
+      </button>
+    </div>
+
   </nav>
+
   <div class="sidebar-bottom">
-    <div class="status-indicator">
-      <div id="ws-dot" class="status-dot"></div>
-      <span id="ws-text">Connecting…</span>
+    <div class="sidebar-bottom-row">
+      <div class="status-indicator">
+        <div id="ws-dot" class="status-dot"></div>
+        <span id="ws-text">Connecting…</span>
+      </div>
+      <button class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()">☾ Dark</button>
     </div>
-    <div class="admin-key-group">
+    <div class="sidebar-system" aria-label="System status">
+      <div class="sidebar-system-row"><span>Audit chain</span><strong id="side-audit">checking…</strong></div>
+      <div class="sidebar-system-row"><span>Quarantined</span><strong id="side-quarantine">—</strong></div>
+      <div class="sidebar-system-row"><span>Policies</span><strong id="side-policies">—</strong></div>
+    </div>
+    <div>
       <label class="sidebar-label" for="key">Admin Key</label>
-      <input id="key" class="sidebar-input" type="password" placeholder="x-admin-key">
+      <input id="key" class="sidebar-input" type="password" placeholder="x-admin-key" autocomplete="off">
     </div>
-    <button class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()">☾ Dark</button>
   </div>
 </aside>
 
 <div class="layout-main">
 
-  <div class="health-bar">
-    <div class="health-bar-left">
-      <span id="health-dot" class="health-dot health-dot--muted"></span>
-      <span id="health-status" class="health-status-text">INITIALIZING</span>
-      <span class="health-sep">·</span>
-      <span id="health-total" class="health-item">—</span>
-      <span class="health-sep">·</span>
-      <span id="health-chain" class="health-item">Checking integrity…</span>
-      <span class="health-sep">·</span>
-      <span id="health-policies" class="health-item">— policies</span>
+  <!-- System Status Bar -->
+  <div class="status-bar">
+    <div class="status-bar-left">
+      <div class="status-segment">
+        <span id="health-dot" class="status-dot-sm status-dot-muted"></span>
+        <span id="health-status" class="status-state muted">INITIALIZING</span>
+      </div>
+      <div class="status-segment">
+        <span id="health-total" class="sub">—</span>
+      </div>
+      <div class="status-segment">
+        <span id="health-chain" class="sub">Checking integrity…</span>
+      </div>
+      <div class="status-segment">
+        <span id="health-policies" class="sub">— policies</span>
+      </div>
     </div>
-    <div class="health-bar-right">
+    <div class="status-bar-right">
       <span id="health-dryrun" class="health-dryrun">⚠ DRY RUN</span>
-      <span class="health-ws">
-        <span id="health-ws-dot" class="health-dot health-dot--muted"></span>
-        <span id="health-ws-text">Connecting…</span>
-      </span>
+      <div class="status-segment">
+        <span id="health-ws-dot" class="status-dot-sm status-dot-muted"></span>
+        <span id="health-ws-text" style="font-size:10.5px;color:var(--text-secondary);">Connecting…</span>
+      </div>
     </div>
   </div>
 
+  <main class="workspace" id="workspace">
   <div class="main-content">
 
-    <section class="section">
-      <div class="section-header"><h2>System Telemetry</h2></div>
-      <div id="stats-container" class="metrics-container">
-        <div class="metrics-loading">Loading telemetry…</div>
+    <!-- Page Masthead (updates per view) -->
+    <header class="page-masthead">
+      <div>
+        <p class="page-eyebrow">Zero-trust security operations</p>
+        <h1 class="page-title" id="page-title">Security Command Center</h1>
+        <p class="page-description" id="page-description">Monitor authoritative pipeline outcomes, validate controls, and investigate activity across the mesh.</p>
+      </div>
+      <div class="page-meta">
+        <span id="page-state-dot" class="status-dot-sm status-dot-muted"></span>
+        <span id="page-state">Synchronizing</span>
+      </div>
+    </header>
+
+    <!-- ============================================================
+         VIEW: OVERVIEW
+         ============================================================ -->
+    <section class="console-view active" data-view-panel="overview">
+
+      <!-- OVERVIEW: Security Command Center -->
+      <div class="overview-grid">
+        <!-- Main Column -->
+        <div class="overview-col-main">
+
+          <!-- Security Posture -->
+          <div class="overview-section">
+            <div class="overview-section-header">
+              <h2 class="overview-section-h">Security Posture</h2>
+              <span style="font-size:9.5px;color:var(--muted);font-family:var(--mono);">AUTHORITATIVE · REST</span>
+            </div>
+            <div class="overview-posture-inner">
+              <div id="stats-container" class="posture-metrics">
+                <div class="metrics-loading">Loading telemetry…</div>
+              </div>
+            </div>
+            <div id="decision-distribution" class="distribution-bar" hidden></div>
+            <div id="decision-distribution-legend" class="distribution-legend" hidden></div>
+          </div>
+
+          <!-- Live Decision Stream -->
+          <div class="overview-section" style="flex:1;">
+            <div class="overview-section-header">
+              <h2 class="overview-section-h">Recent Decisions</h2>
+              <span class="section-meta" id="overview-count" style="font-size:9.5px;">Awaiting activity</span>
+            </div>
+            <div id="overview-timeline" class="activity-empty" role="list">
+              Live decision activity will appear here as the pipeline evaluates requests. Select any row to open its evidence in Live Operations.
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Side Column -->
+        <div class="overview-col-side">
+
+          <!-- Attention Queue — live triage from session decisions -->
+          <div class="overview-section">
+            <div class="overview-section-header">
+              <h2 class="overview-section-h">Attention Queue</h2>
+              <span style="font-size:9.5px;color:var(--muted);font-family:var(--mono);" id="attention-meta">SESSION TRIAGE</span>
+            </div>
+            <div id="attention-queue" style="padding:4px 0;">
+              <div style="padding:16px;">
+                <div class="attention-empty">
+                  <div class="attention-mark" aria-hidden="true">i</div>
+                  <div>
+                    <p class="attention-empty-title">Nothing needs review</p>
+                    <p class="attention-empty-body">Blocked, step-up, and monitored decisions from this session will surface here, highest risk first. Correlated threat findings will appear here once the intelligence contract is connected.</p>
+                    <div class="data-boundary">Authoritative pipeline activity remains available in Live Operations</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Analyst Advisory -->
+          <div class="overview-section">
+            <div class="overview-section-header">
+              <h2 class="overview-section-h">Analyst Advisory</h2>
+              <span style="font-size:9.5px;color:var(--muted);font-family:var(--mono);">ADVISORY</span>
+            </div>
+            <div id="recs-overview" style="padding:0; font-size:12px; line-height:1.55;">
+              <div style="padding:16px;color:var(--muted);">Loading recommendations…</div>
+            </div>
+          </div>
+
+        </div>
       </div>
     </section>
 
-    <div class="grid-feed-sim">
-      <section class="section">
-        <div class="section-header">
-          <h2>Live Decision Feed</h2>
-          <span class="section-header-meta" id="feed-count">0 events</span>
-        </div>
-        <div class="event-stream" id="feed">
-          <div class="feed-empty">Awaiting live traffic…</div>
-        </div>
-      </section>
+    <!-- ============================================================
+         VIEW: LIVE OPERATIONS
+         ============================================================ -->
+    <section class="console-view" data-view-panel="operations">
 
-      <section class="section">
-        <div class="section-header">
-          <h2>Attack Simulator</h2>
-          <button class="btn btn-primary btn-sm" id="runAll">Run All</button>
-        </div>
-        <div class="sim-description">Executes forged traffic against the live evaluation pipeline.</div>
-        <div id="sim-summary" class="sim-summary" style="display:none;"></div>
-        <div id="scenarios" class="scenarios-list"></div>
-      </section>
-    </div>
+      <div class="ops-layout">
 
-    <div class="grid-2">
-      <section class="section">
-        <div class="section-header"><h2>Containment &amp; Quarantine</h2></div>
+        <!-- Feed column -->
+        <section class="section" aria-label="Live decision activity">
+          <div class="section-header">
+            <h2 class="section-h">Decision Activity</h2>
+            <div class="feed-toolbar">
+              <span class="feed-toolbar-note">Newest first · authoritative pipeline verdicts</span>
+              <label class="visually-hidden" for="decision-filter">Filter decisions</label>
+              <select class="feed-filter" id="decision-filter" aria-label="Filter live decisions">
+                <option value="">All decisions</option>
+                <option value="BLOCK">Block</option>
+                <option value="STEP_UP_AUTH">Step-up</option>
+                <option value="MONITOR">Monitor</option>
+                <option value="ALLOW">Allow</option>
+              </select>
+              <label class="visually-hidden" for="decision-search">Search activity</label>
+              <input class="feed-search" id="decision-search" type="search" placeholder="Search…" aria-label="Search live decisions">
+              <span class="section-meta" id="feed-count">0 events</span>
+            </div>
+          </div>
+          <div class="decision-legend" aria-label="Decision meanings">
+            <span class="decision-legend-item"><span class="decision-swatch allow"></span><b>ALLOW</b>&nbsp;forwarded · low risk</span>
+            <span class="decision-legend-item"><span class="decision-swatch monitor"></span><b>MONITOR</b>&nbsp;forwarded · flagged</span>
+            <span class="decision-legend-item"><span class="decision-swatch stepup"></span><b>STEP-UP</b>&nbsp;held · TOTP required</span>
+            <span class="decision-legend-item"><span class="decision-swatch block"></span><b>BLOCK</b>&nbsp;denied · not forwarded</span>
+          </div>
+          <div class="event-stream" id="feed" role="list">
+            <div class="event-stream-header" aria-hidden="true">
+              <span>TIME</span>
+              <span>DECISION</span>
+              <span>SOURCE → DEST</span>
+              <span>REASON / PATH</span>
+              <span style="text-align:right;">RISK</span>
+            </div>
+            <div class="feed-empty">Awaiting live traffic… Run the attack simulator or send proxy traffic to populate this console.</div>
+          </div>
+        </section>
+
+        <!-- Investigation column -->
+        <section class="section">
+          <div class="section-header">
+            <h2 class="section-h">Event investigation</h2>
+            <span class="section-meta">Authoritative record</span>
+          </div>
+          <div class="investigation-panel" id="investigation-panel" style="overflow-y:auto;max-height:calc(100vh - 260px);">
+            <div class="investigation-empty" style="display:flex;flex-direction:column;align-items:flex-start;">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:10px;">Awaiting Selection</div>
+              <p style="margin:0 0 8px;font-size:12px;line-height:1.55;">Select an event from the decision stream to inspect its pipeline evidence.</p>
+              <p style="margin:0;font-size:11px;color:var(--muted);line-height:1.5;">Shows: source, destination, final decision, risk factors, pipeline stage trace, and decision context.</p>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </section>
+
+    <!-- ============================================================
+         VIEW: THREAT INTELLIGENCE (tabbed sub-views)
+         ============================================================ -->
+    <section class="console-view" data-view-panel="intelligence">
+
+      <div class="view-tabs" id="intel-tabs">
+        <button class="view-tab active" data-sub="findings" type="button">Threat Findings</button>
+        <button class="view-tab" data-sub="investigations" type="button">Investigations</button>
+        <button class="view-tab" data-sub="categories" type="button">Threat Categories</button>
+        <button class="view-tab" data-sub="paths" type="button">Attack Paths</button>
+      </div>
+
+      <!-- Findings -->
+      <div class="sub-view active" id="intel-findings" role="tabpanel" aria-label="Threat findings">
+        <div class="intel-empty-state">
+          <span class="intel-empty-icon" aria-hidden="true">◆</span>
+          <h3 class="intel-state-title">Threat Findings — awaiting contract</h3>
+          <p class="intel-state-body">No active findings. When the backend findings contract is connected, each row here will be one correlated finding with its severity, confidence, category, evidence chain, and affected services.</p>
+          <ul class="intel-will-list">
+            <li><b>Severity</b> — how serious the threat is (backend-assessed, never derived from risk score)</li>
+            <li><b>Confidence</b> — strength of the evidence behind the finding</li>
+            <li><b>Evidence</b> — the pipeline events and signals that produced it</li>
+          </ul>
+          <div class="intel-contract-notice"><strong>Data boundary:</strong> No findings fabricated. Backend threat findings API not yet exposed. Pipeline risk remains authoritative in Live Operations.</div>
+        </div>
+
+        <div class="section-header" style="margin-top:24px;">
+          <h2 class="section-h">Expected finding record schema</h2>
+          <span class="section-meta">Architecture preview</span>
+        </div>
+        <div class="intel-schema-table">
+          <div class="intel-schema-header">Field</div>
+          <div class="intel-schema-header">Type</div>
+          <div class="intel-schema-header">Status</div>
+          <div class="intel-schema-row">
+            <span class="intel-schema-field">findingId</span>
+            <span class="intel-schema-type">string</span>
+            <span class="intel-schema-status">awaiting contract</span>
+          </div>
+          <div class="intel-schema-row">
+            <span class="intel-schema-field">severity</span>
+            <span class="intel-schema-type">enum</span>
+            <span class="intel-schema-status">awaiting contract</span>
+          </div>
+          <div class="intel-schema-row">
+            <span class="intel-schema-field">confidence</span>
+            <span class="intel-schema-type">number 0–1</span>
+            <span class="intel-schema-status">awaiting contract</span>
+          </div>
+          <div class="intel-schema-row">
+            <span class="intel-schema-field">category</span>
+            <span class="intel-schema-type">string</span>
+            <span class="intel-schema-status">awaiting contract</span>
+          </div>
+          <div class="intel-schema-row">
+            <span class="intel-schema-field">evidence</span>
+            <span class="intel-schema-type">array</span>
+            <span class="intel-schema-status">awaiting contract</span>
+          </div>
+          <div class="intel-schema-row">
+            <span class="intel-schema-field">affectedEntities</span>
+            <span class="intel-schema-type">array</span>
+            <span class="intel-schema-status">awaiting contract</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Investigations -->
+      <div class="sub-view" id="intel-investigations" role="tabpanel" aria-label="Investigations">
+        <div class="intel-empty-state">
+          <span class="intel-empty-icon" aria-hidden="true">◇</span>
+          <h3 class="intel-state-title">Investigations — ready when findings arrive</h3>
+          <p class="intel-state-body">No active investigations. Each investigation will open from a finding and walk the analyst through evidence review, source correlation, timeline reconstruction, and disposition — all tied to the backend finding record.</p>
+          <ul class="intel-will-list">
+            <li><b>Evidence review</b> — signals and pipeline events behind the finding</li>
+            <li><b>Timeline</b> — chronological reconstruction of the activity</li>
+            <li><b>Disposition</b> — analyst outcome recorded against the finding</li>
+          </ul>
+          <div class="intel-contract-notice"><strong>Note:</strong> Single-event evidence is available now in Live Operations → Event investigation.</div>
+        </div>
+      </div>
+
+      <!-- Categories -->
+      <div class="sub-view" id="intel-categories" role="tabpanel" aria-label="Threat categories">
+        <div class="intel-empty-state">
+          <span class="intel-empty-icon" aria-hidden="true">▦</span>
+          <h3 class="intel-state-title">Threat Category Exposure — awaiting contract</h3>
+          <p class="intel-state-body">No category data available. Exposure analysis will map correlated findings to threat taxonomies (lateral movement, credential abuse, exfiltration, privilege escalation) and show which categories dominate.</p>
+          <ul class="intel-will-list">
+            <li><b>Exposure by category</b> — where correlated threat activity concentrates</li>
+            <li><b>Trend</b> — how category exposure changes over time</li>
+          </ul>
+          <div class="intel-contract-notice"><strong>Risk vs. Category:</strong> Pipeline risk (Live Operations) is observed danger; category is threat type. One is never inferred from the other.</div>
+        </div>
+      </div>
+
+      <!-- Attack Paths -->
+      <div class="sub-view" id="intel-paths" role="tabpanel" aria-label="Attack paths">
+        <div class="intel-empty-state">
+          <span class="intel-empty-icon" aria-hidden="true">→</span>
+          <h3 class="intel-state-title">Attack Paths — awaiting correlation</h3>
+          <p class="intel-state-body">No attack path data available. Path reconstruction will chain correlated findings into multi-hop sequences showing how an adversary could traverse the mesh.</p>
+          <ul class="intel-will-list">
+            <li><b>Hop chain</b> — ordered service sequence from the correlation engine</li>
+            <li><b>Supporting findings</b> — the finding behind each hop</li>
+          </ul>
+          <div class="intel-contract-notice"><strong>Note:</strong> Approved service relationships are visible now in Zero-Trust Mesh → Service Map. No topology is inferred beyond registered contracts.</div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ============================================================
+         VIEW: ZERO-TRUST MESH (tabbed sub-views)
+         ============================================================ -->
+    <section class="console-view" data-view-panel="mesh">
+
+      <div class="view-tabs" id="mesh-tabs">
+        <button class="view-tab active" data-sub="map" type="button">Service Map</button>
+        <button class="view-tab" data-sub="activity" type="button">Service Activity</button>
+        <button class="view-tab" data-sub="anomalies" type="button">Behavioral Anomalies</button>
+      </div>
+
+      <!-- Service Map -->
+      <div class="sub-view active" id="mesh-map">
+        <div class="mesh-stats-row">
+          <div class="mesh-stat">
+            <span class="mesh-stat-value" id="mesh-policy-count">—</span>
+            <span class="mesh-stat-label">Approved relationships</span>
+          </div>
+          <div class="mesh-stat">
+            <span class="mesh-stat-value" id="mesh-service-count">—</span>
+            <span class="mesh-stat-label">Registered services</span>
+          </div>
+          <div class="mesh-stat">
+            <span class="mesh-stat-value">Default deny</span>
+            <span class="mesh-stat-label">Unlisted interactions</span>
+          </div>
+        </div>
+        <section class="section">
+          <div class="section-header">
+            <h2 class="section-h">Service relationship controls <span class="section-badge">Default Deny</span></h2>
+          </div>
+          <div class="table-container">
+            <table id="policies"><tbody><tr><td style="color:var(--muted);font-size:12px;padding:16px;">Loading policy data…</td></tr></tbody></table>
+          </div>
+          <div class="security-statement">🔒 <strong>DEFAULT-DENY</strong> · Any service pair not explicitly listed above is blocked regardless of authentication.</div>
+        </section>
+      </div>
+
+      <!-- Service Activity -->
+      <div class="sub-view" id="mesh-activity">
+        <div class="intel-empty-state">
+          <h3 class="intel-state-title">Service activity analysis — policy-derived</h3>
+          <p class="intel-state-body">Per-service traffic volume, decision distribution, and interaction frequency will be shown here. Activity data is computed from the live decision stream; only authoritative pipeline events are used. Registered service relationships are available in Service Map.</p>
+          <div class="intel-contract-notice"><strong>Note:</strong> Live decisions accumulate in this session. Service activity history requires a persistent backend store not yet exposed.</div>
+        </div>
+        <!-- Live session activity will be populated here if decisions exist -->
+        <div id="mesh-activity-live"></div>
+      </div>
+
+      <!-- Behavioral Anomalies -->
+      <div class="sub-view" id="mesh-anomalies">
+        <div class="intel-empty-state">
+          <h3 class="intel-state-title">Behavioral anomaly detection</h3>
+          <p class="intel-state-body">Per-pair EWMA baselines detect anomalous request volume, payload size, and call-depth deviations. The backend risk engine calculates and records these as named factors on each decision event. Anomaly factor codes (e.g., <code>BASELINE_SPIKE</code>, <code>PAYLOAD_ANOMALY</code>) are visible in the Live Operations investigation panel when present.</p>
+          <div class="intel-contract-notice"><strong>Authoritative source:</strong> Anomaly factors are recorded by the backend risk engine. This view does not compute anomalies independently.</div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ============================================================
+         VIEW: SECURITY CONTROLS (tabbed sub-views)
+         ============================================================ -->
+    <section class="console-view" data-view-panel="controls">
+
+      <div class="view-tabs" id="controls-tabs">
+        <button class="view-tab active" data-sub="policies" type="button">Policies</button>
+        <button class="view-tab" data-sub="containment" type="button">Containment</button>
+        <button class="view-tab" data-sub="audit" type="button">Audit Chain</button>
+        <button class="view-tab" data-sub="simulator" type="button">Attack Simulator</button>
+      </div>
+
+      <!-- Policies sub-view (mirror of mesh map policies table) -->
+      <div class="sub-view active" id="controls-policies">
+        <div class="section-header">
+          <h2 class="section-h">Enforcement policies <span class="section-badge">Default Deny</span></h2>
+          <span class="section-meta" id="ctrl-policy-meta">Loading…</span>
+        </div>
+        <div class="table-container">
+          <table id="ctrl-policies-table"><tbody><tr><td style="color:var(--muted);font-size:12px;padding:16px;">Loading policy data…</td></tr></tbody></table>
+        </div>
+        <div class="security-statement">🔒 <strong>DEFAULT-DENY</strong> · Any service pair not explicitly listed is blocked regardless of authentication.</div>
+      </div>
+
+      <!-- Containment sub-view -->
+      <div class="sub-view" id="controls-containment">
+        <div class="section-header">
+          <h2 class="section-h">Containment &amp; quarantine</h2>
+          <span class="section-meta">Active enforcement</span>
+        </div>
         <div id="audit-chain-bar" class="audit-chain-bar">
           <div class="status-dot"></div>
           <span style="color:var(--muted);">Checking audit chain…</span>
         </div>
         <div id="quar-container"></div>
-      </section>
-      <section class="section">
-        <div class="section-header"><h2>Least-Privilege Intelligence</h2></div>
-        <div id="recs"></div>
-      </section>
-    </div>
+      </div>
 
-    <section class="section">
-      <div class="section-header">
-        <h2>Services &amp; Policies <span class="section-badge">Default Deny</span></h2>
+      <!-- Audit Chain sub-view -->
+      <div class="sub-view" id="controls-audit">
+        <div class="section-header">
+          <h2 class="section-h">Audit log integrity</h2>
+          <span class="section-meta">Hash-chain verification</span>
+        </div>
+        <div id="audit-status-display" style="padding:6px 0;">
+          <div class="audit-chain-bar" style="padding:0 0 12px;">
+            <div class="status-dot"></div>
+            <span style="color:var(--muted);">Checking…</span>
+          </div>
+        </div>
+        <p style="font-size:12px;color:var(--text-secondary);line-height:1.55;max-width:560px;">
+          The audit log is hash-chained: each entry's hash includes the previous entry's hash, creating a tamper-evident chain. Verification confirms that no record has been altered or deleted since logging. A broken chain indicates tampering and constitutes a security event.
+        </p>
       </div>
-      <div class="table-container">
-        <table id="policies"></table>
+
+      <!-- Attack Simulator sub-view -->
+      <div class="sub-view" id="controls-simulator">
+        <div class="section-header">
+          <h2 class="section-h">Attack simulator</h2>
+          <button class="btn btn-primary btn-sm" id="runAll">Run all scenarios</button>
+        </div>
+        <div class="sim-description">Executes forged traffic against the live evaluation pipeline. Each scenario validates that the security controls behave as expected against real attack patterns.</div>
+        <div id="sim-summary" class="sim-summary" style="display:none;"></div>
+        <div id="scenarios" class="scenarios-list"></div>
       </div>
-      <div class="security-statement">
-        🔒 <strong>DEFAULT-DENY</strong> · Any service pair not explicitly listed above is blocked regardless of authentication.
-      </div>
+
     </section>
 
-  </div>
-</div>
+    <!-- ============================================================
+         VIEW: RESPONSE RECOMMENDATIONS
+         ============================================================ -->
+    <section class="console-view" data-view-panel="response">
+      <div class="section-header" style="margin-top:4px;">
+        <h2 class="section-h">Least-privilege recommendations</h2>
+        <span class="section-meta">Advisory only — enforcement stays with the policy engine</span>
+      </div>
+      <div id="recs" style="max-width:900px;"></div>
+    </section>
+
+  </div><!-- /.main-content -->
+  </main>
+
+</div><!-- /.layout-main -->
 
 <script>
 /* =====================================================
@@ -747,7 +1814,7 @@ function toggleTheme(){
 })();
 
 /* =====================================================
-   UTILITIES (unchanged)
+   UTILITIES
    ===================================================== */
 const $=(id)=>document.getElementById(id);
 const esc=(s)=>String(s??'').replace(/[&<>"]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -759,29 +1826,366 @@ const badge=(decision)=>{
 };
 
 /* =====================================================
-   FEED COUNTER
+   NAVIGATION — sub-view aware routing
    ===================================================== */
-let feedEventCount=0;
-function updateFeedCount(){
-  const el=$('feed-count');
-  if(el)el.textContent=feedEventCount+(feedEventCount===1?' event':' events');
+const viewMeta={
+  overview:  ['Security Command Center','Monitor authoritative pipeline outcomes, validate controls, and investigate activity across the mesh.'],
+  operations:['Live Operations','Review the current stream of authoritative pipeline decisions. Select a row to open its evidence and pipeline trace.'],
+  intelligence:['Threat Intelligence','Correlated findings with confidence, severity, and category exposure. Data boundary active — backend contract not yet exposed.'],
+  mesh:      ['Zero-Trust Mesh','Registered service relationships derived from active policy. Default-deny for any unlisted service pair.'],
+  controls:  ['Security Controls','Validate enforcement policies, containment state, audit integrity, and run the attack simulator.'],
+  response:  ['Response Recommendations','Advisory least-privilege guidance from observed policy use. Enforcement remains with the backend policy engine.']
+};
+
+// Sub-view tab state: which sub-view tab is active per parent view
+const activeSubViews={
+  intelligence:'findings',
+  mesh:'map',
+  controls:'policies'
+};
+
+function activateSubView(parentViewId, subViewId){
+  // Update in-view tabs (note: intelligence view uses "intel-tabs" as its container id)
+  const containerIds={'intelligence':'intel-tabs','mesh':'mesh-tabs','controls':'controls-tabs'};
+  const tabContainer=document.getElementById(containerIds[parentViewId]||(parentViewId+'-tabs'));
+  if(tabContainer){
+    tabContainer.querySelectorAll('.view-tab').forEach((t)=>{
+      const on=t.dataset.sub===subViewId;
+      t.classList.toggle('active',on);
+      t.setAttribute('aria-selected',on?'true':'false');
+    });
+  }
+  // Show/hide sub-views (note: intelligence sub-views use the "intel-" id prefix)
+  const idPrefixes={'intelligence':'intel','mesh':'mesh','controls':'controls'};
+  const matchId=(idPrefixes[parentViewId]||parentViewId)+'-'+subViewId;
+  const panel=document.querySelector('[data-view-panel="'+parentViewId+'"]');
+  if(panel){
+    panel.querySelectorAll('.sub-view').forEach((sv)=>{
+      sv.classList.toggle('active',sv.id===matchId);
+    });
+  }
+  activeSubViews[parentViewId]=subViewId;
+}
+
+function activateView(view, trigger, subView){
+  // Show correct console view panel
+  document.querySelectorAll('[data-view-panel]').forEach((panel)=>{
+    panel.classList.toggle('active',panel.dataset.viewPanel===view);
+  });
+
+  // Update nav active state — only the clicked item is active
+  document.querySelectorAll('.nav-item[data-view]').forEach((item)=>{
+    item.classList.remove('active');
+    item.removeAttribute('aria-current');
+  });
+  if(trigger){trigger.classList.add('active');trigger.setAttribute('aria-current','page');}
+
+  // Update page masthead
+  const meta=viewMeta[view]||viewMeta.overview;
+  $('page-title').textContent=meta[0];
+  $('page-description').textContent=meta[1];
+  $('workspace').scrollTop=0;
+
+  // Activate sub-view if specified, else restore last active sub-view
+  const hasSubs=['intelligence','mesh','controls'].includes(view);
+  if(hasSubs){
+    const sub=subView||activeSubViews[view]||{intelligence:'findings',mesh:'map',controls:'policies'}[view];
+    activateSubView(view,sub);
+  }
+}
+
+// Sidebar nav click handlers
+document.querySelectorAll('.nav-item[data-view]').forEach((item)=>{
+  item.addEventListener('click',()=>{
+    const view=item.dataset.view;
+    const sub=item.dataset.sub||null;
+    activateView(view,item,sub);
+  });
+});
+
+// In-view tab click handlers (set up once globally via delegation)
+document.querySelectorAll('.view-tabs').forEach((tabContainer)=>{
+  tabContainer.setAttribute('role','tablist');
+  tabContainer.querySelectorAll('.view-tab').forEach((tab)=>{
+    tab.setAttribute('role','tab');
+    if(!tab.hasAttribute('aria-selected'))tab.setAttribute('aria-selected',tab.classList.contains('active')?'true':'false');
+    tab.addEventListener('click',()=>{
+      // Determine parent view from tab container ID
+      const containerId=tabContainer.id; // e.g. "intel-tabs", "mesh-tabs", "controls-tabs"
+      const viewMap={'intel-tabs':'intelligence','mesh-tabs':'mesh','controls-tabs':'controls'};
+      const parentView=viewMap[containerId];
+      if(parentView){
+        activateSubView(parentView,tab.dataset.sub);
+        tabContainer.querySelectorAll('.view-tab').forEach((t)=>t.setAttribute('aria-selected',t===tab?'true':'false'));
+        // Also update the sidebar nav to reflect sub-view
+        document.querySelectorAll('.nav-item[data-view="'+parentView+'"]').forEach((ni)=>{
+          const on=ni.dataset.sub===tab.dataset.sub;
+          ni.classList.toggle('active',on);
+          if(on)ni.setAttribute('aria-current','page');else ni.removeAttribute('aria-current');
+        });
+      }
+    });
+  });
+});
+
+// Jump from any triage surface to the authoritative event in Live Operations
+function inspectDecision(requestId){
+  const navItem=document.querySelector('.nav-item[data-view="operations"]');
+  activateView('operations',navItem||undefined);
+  if(requestId)selectDecision(requestId);
 }
 
 /* =====================================================
-   HEALTH BAR (UI-only, driven by existing API data)
+   FEED COUNTER & LIVE DECISIONS
+   ===================================================== */
+let feedEventCount=0;
+let liveDecisions=[];
+let selectedDecisionId='';
+
+function updateFeedCount(){
+  const el=$('feed-count');
+  if(el)el.textContent=feedEventCount+(feedEventCount===1?' event':' events');
+  // Update nav badge
+  const badge=$('nav-badge-ops');
+  if(badge)badge.textContent=feedEventCount>0?feedEventCount:'0';
+}
+
+function filteredDecisions(){
+  const decision=$('decision-filter')?.value||'';
+  const query=($('decision-search')?.value||'').trim().toLowerCase();
+  return liveDecisions.filter((r)=>{
+    const matchesDecision=!decision||r.decision===decision;
+    const text=[r.source,r.destination,r.reason,r.method,r.path].join(' ').toLowerCase();
+    return matchesDecision&&(!query||text.includes(query));
+  });
+}
+
+function renderFeed(){
+  const feed=$('feed');
+  const decisions=filteredDecisions();
+  updateFeedCount();
+  if(!decisions.length){
+    feed.innerHTML='<div class="feed-empty">'+(liveDecisions.length?'No live decisions match this filter.':'Awaiting live traffic…')+'</div>';
+    return;
+  }
+  feed.innerHTML='';
+  decisions.forEach((r)=>{
+    let borderColor='transparent';
+    if(r.decision==='BLOCK')borderColor='var(--block)';
+    else if(r.decision==='STEP_UP_AUTH')borderColor='var(--info)';
+    else if(r.decision==='MONITOR')borderColor='var(--warning)';
+    const row=document.createElement('button');
+    row.type='button';
+    row.className='event-row'+(r.requestId===selectedDecisionId?' selected':'');
+    row.style.borderLeftColor=borderColor;
+    row.setAttribute('role','listitem');
+    row.setAttribute('aria-label','Inspect '+r.decision.replace(/_/g,' ')+', risk '+(r.riskScore||0)+', '+(r.source||'unknown')+' to '+(r.destination||'unknown')+', '+r.reason);
+    const factorCount=Array.isArray(r.factors)?r.factors.length:0;
+    const factorNote=factorCount?' · '+factorCount+' factor'+(factorCount===1?'':'s'):'';
+    row.innerHTML=
+      '<div class="event-time">'+new Date(r.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})+'</div>'+
+      '<div>'+badge(r.decision)+'</div>'+
+      '<div class="event-service" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><span style="color:var(--text-primary);font-weight:600;">'+esc(r.source||'Unknown')+'</span> <span class="event-arrow">→</span> <span style="color:var(--text-primary);font-weight:600;">'+esc(r.destination||'Unknown')+'</span></div>'+
+      '<div class="event-path" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="'+esc(r.reason+factorNote)+'"><span style="color:var(--text-primary);font-weight:700;margin-right:6px;">'+esc(r.reason)+'</span><span style="color:var(--text-secondary);">'+esc(r.method)+' '+esc(r.path)+'</span>'+(factorCount?'<span style="color:var(--muted);"> · '+factorCount+'f</span>':'')+'</div>'+
+      '<div class="event-col-risk">'+(r.riskScore>0?'<span class="risk-score '+(r.riskScore>=50?'risk-high':'risk-medium')+'">'+esc(r.riskScore)+'</span>':'<span class="risk-score" style="color:var(--muted);">0</span>')+'</div>';
+    row.addEventListener('click',()=>selectDecision(r.requestId));
+    feed.appendChild(row);
+  });
+}
+
+function renderOverviewTimeline(){
+  const timeline=$('overview-timeline');
+  const count=$('overview-count');
+  if(!timeline||!count)return;
+  const recent=liveDecisions.slice(0,7);
+  count.textContent=recent.length?(recent.length+' event'+(recent.length===1?'':'s')+' · select a row to investigate'):'Awaiting activity';
+  if(!recent.length){
+    timeline.className='activity-empty';
+    timeline.textContent='Live decision activity will appear here as the pipeline evaluates requests. Select any row to open its evidence in Live Operations.';
+    return;
+  }
+  timeline.className='activity-timeline';
+  timeline.innerHTML='';
+  recent.forEach((r)=>{
+    const b=document.createElement('button');
+    b.type='button';
+    b.className='activity-row';
+    b.setAttribute('role','listitem');
+    b.setAttribute('aria-label','Investigate '+r.decision.replace(/_/g,' ')+' event '+r.source+' to '+r.destination);
+    b.innerHTML=
+      '<span class="activity-time">'+new Date(r.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})+'</span>'+
+      '<span class="activity-route">'+esc(r.source||'?')+' → '+esc(r.destination||'?')+'</span>'+
+      badge(r.decision)+
+      '<span class="activity-time" style="text-align:right;">risk '+esc(r.riskScore||0)+'</span>';
+    b.addEventListener('click',()=>inspectDecision(r.requestId));
+    timeline.appendChild(b);
+  });
+  renderAttentionQueue();
+}
+
+// Attention Queue: highest-risk non-ALLOW session decisions first (display only, verdicts stay authoritative)
+function renderAttentionQueue(){
+  const el=$('attention-queue');
+  if(!el)return;
+  const flagged=liveDecisions.filter((r)=>r.decision&&r.decision!=='ALLOW').slice(0,5);
+  const meta=$('attention-meta');
+  if(meta)meta.textContent=flagged.length?flagged.length+' FLAGGED THIS SESSION':'SESSION TRIAGE';
+  if(!flagged.length){
+    const anyCount=liveDecisions.length;
+    el.innerHTML='<div style="padding:16px;"><div class="attention-empty">'+
+      '<div class="attention-mark" aria-hidden="true">i</div><div>'+
+      '<p class="attention-empty-title">'+(anyCount?'All session traffic allowed':'Nothing needs review')+'</p>'+
+      '<p class="attention-empty-body">'+(anyCount
+        ?anyCount+' session decision'+(anyCount===1?'':'s')+' observed, all ALLOW. Blocked, step-up, and monitored decisions will surface here, highest risk first.'
+        :'Blocked, step-up, and monitored decisions from this session will surface here, highest risk first. Correlated threat findings will appear here once the intelligence contract is connected.')+'</p>'+
+      '<div class="data-boundary">Authoritative pipeline activity remains available in Live Operations</div>'+
+      '</div></div></div>';
+    return;
+  }
+  el.innerHTML='';
+  flagged
+    .slice()
+    .sort((a,b)=>(b.riskScore||0)-(a.riskScore||0))
+    .forEach((r)=>{
+      const cls=r.decision==='BLOCK'?'attn-block':(r.decision==='STEP_UP_AUTH'?'attn-stepup':'attn-monitor');
+      const b=document.createElement('button');
+      b.type='button';
+      b.className='attention-row '+cls;
+      b.setAttribute('aria-label','Investigate '+r.decision.replace(/_/g,' ')+', risk '+(r.riskScore||0)+', '+r.source+' to '+r.destination);
+      b.innerHTML=
+        '<span><span class="attention-route">'+esc(r.source||'?')+' → '+esc(r.destination||'?')+'</span><br>'+
+        '<span class="attention-reason">'+esc(r.reason)+' · '+esc(r.method)+' '+esc(r.path)+'</span></span>'+
+        '<span><span class="attention-risk '+(r.decision==='BLOCK'?'BLOCK':(r.decision==='STEP_UP_AUTH'?'STEP_UP_AUTH':'MONITOR'))+'">'+esc(r.riskScore||0)+'</span><br>'+
+        '<span class="attention-inspect">'+esc(r.decision).replace(/_/g,' ')+' →</span></span>';
+      b.addEventListener('click',()=>inspectDecision(r.requestId));
+      el.appendChild(b);
+    });
+}
+
+function renderMeshActivityLive(){
+  const el=$('mesh-activity-live');
+  if(!el)return;
+  if(!liveDecisions.length){el.innerHTML='';return;}
+  // Summarize by source→destination pairs
+  const pairs={};
+  liveDecisions.forEach((r)=>{
+    const key=(r.source||'?')+' → '+(r.destination||'?');
+    if(!pairs[key])pairs[key]={allow:0,block:0,monitor:0,stepup:0,total:0};
+    pairs[key].total++;
+    if(r.decision==='ALLOW')pairs[key].allow++;
+    else if(r.decision==='BLOCK')pairs[key].block++;
+    else if(r.decision==='MONITOR')pairs[key].monitor++;
+    else if(r.decision==='STEP_UP_AUTH')pairs[key].stepup++;
+  });
+  const rows=Object.entries(pairs).sort((a,b)=>b[1].total-a[1].total).slice(0,10);
+  el.innerHTML=
+    '<div style="margin-top:20px;"><div class="section-header"><h2 class="section-h">Live session traffic (this session)</h2><span class="section-meta">'+liveDecisions.length+' decisions observed</span></div>'+
+    '<div class="table-container"><table>'+
+    '<thead><tr><th>Service pair</th><th>Allow</th><th>Block</th><th>Monitor</th><th>Step-Up</th><th>Total</th></tr></thead>'+
+    '<tbody>'+
+    rows.map(([pair,counts])=>
+      '<tr>'+
+        '<td><span class="mono" style="font-size:11.5px;">'+esc(pair)+'</span></td>'+
+        '<td class="ALLOW">'+counts.allow+'</td>'+
+        '<td class="BLOCK">'+counts.block+'</td>'+
+        '<td class="MONITOR">'+counts.monitor+'</td>'+
+        '<td class="STEP_UP_AUTH">'+counts.stepup+'</td>'+
+        '<td style="font-weight:700;">'+counts.total+'</td>'+
+      '</tr>'
+    ).join('')+
+    '</tbody></table></div></div>';
+}
+
+function selectDecision(requestId){
+  selectedDecisionId=requestId;
+  const r=liveDecisions.find((item)=>item.requestId===requestId);
+  if(!r)return;
+  const factors=Array.isArray(r.factors)?r.factors:[];
+  const stages=Array.isArray(r.stages)?r.stages:[];
+  const factorHtml=factors.length
+    ?'<div class="factor-list" style="margin-bottom:8px;">'+factors.map((factor)=>'<span class="factor-chip" title="'+esc(factor.detail)+'">'+esc(factor.code)+' +'+esc(factor.points)+'</span>').join('')+'</div>'+
+     '<div style="display:flex;flex-direction:column;gap:4px;">'+factors.map((factor)=>'<div style="font-size:11px;color:var(--text-secondary);line-height:1.45;"><code>'+esc(factor.code)+'</code> <b style="color:var(--text-primary);">+'+esc(factor.points)+'</b> — '+esc(factor.detail)+'</div>').join('')+'</div>'
+    :'<span class="sub">No soft-risk factors recorded for this decision. Hard-failure verdicts (e.g. bad signature, replay, no policy) carry a fixed severity instead of factor points.</span>';
+  const riskCls=(r.riskScore||0)>=50?'critical':((r.riskScore||0)>0?'elevated':'');
+  const riskBar='<div class="risk-meter" role="img" aria-label="Authoritative risk '+(r.riskScore||0)+' of 100, level '+(r.riskLevel||'unknown')+'"><div class="risk-meter-track"><span class="risk-meter-fill '+riskCls+'" style="width:'+Math.max(0,Math.min(100,r.riskScore||0))+'%"></span></div><span class="risk-meter-value">'+esc(r.riskScore||0)+'/100 · '+esc(r.riskLevel||'—')+'</span></div>';
+  const timelineHtml=stages.length
+    ?'<ol class="stage-timeline">'+stages.map((stage)=>'<li class="stage-row"><span class="stage-name">'+esc(stage.stage)+'</span><strong>'+esc(stage.outcome).toUpperCase()+'</strong> · '+esc(stage.detail)+'</li>').join('')+'</ol>'
+    :'<span class="sub">No stage trace included in this event.</span>';
+  $('investigation-panel').innerHTML=
+    '<div class="inv-workspace">'+
+      '<div class="inv-header">'+
+        '<div class="inv-id">Event: '+esc(r.requestId||'Unknown')+'</div>'+
+        '<div class="inv-meta">'+new Date(r.timestamp).toLocaleString()+' · Trace '+esc(r.traceId||'—')+'</div>'+
+        '<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'+badge(r.decision)+'<span class="sub">Authoritative pipeline verdict</span></div>'+
+      '</div>'+
+
+      '<div class="inv-section">'+
+        '<div class="inv-h">Event Identity</div>'+
+        '<div class="inv-identity-grid">'+
+          '<div class="inv-grid-label">Source</div><div class="inv-grid-val">'+esc(r.source||'?')+'</div>'+
+          '<div class="inv-grid-label">Dest</div><div class="inv-grid-val">'+esc(r.destination||'?')+'</div>'+
+          '<div class="inv-grid-label">Route</div><div class="inv-grid-val">'+esc(r.method)+' '+esc(r.path)+'</div>'+
+        '</div>'+
+      '</div>'+
+
+      '<div class="inv-section">'+
+        '<div class="inv-h">Observed risk (pipeline)</div>'+
+        '<div class="inv-data">'+riskBar+'<div class="sub" style="margin-top:6px;">Score is the exact sum of the factors below. Hard failures use a fixed severity.</div></div>'+
+      '</div>'+
+
+      '<div class="inv-section">'+
+        '<div class="inv-h">Why did this happen?</div>'+
+        '<div class="inv-data">'+factorHtml+'</div>'+
+      '</div>'+
+
+      '<div class="inv-section">'+
+        '<div class="inv-h">Pipeline Timeline</div>'+
+        '<div class="inv-data">'+timelineHtml+'</div>'+
+      '</div>'+
+
+      '<div class="inv-section">'+
+        '<div class="inv-h">Decision Context</div>'+
+        '<div class="inv-identity-grid">'+
+          '<div class="inv-grid-label">Reason</div><div class="inv-grid-val" style="color:var(--text-primary); font-weight:700;">'+esc(r.reason)+'</div>'+
+          '<div class="inv-grid-label">HTTP</div><div class="inv-grid-val">'+esc(r.httpStatus||'—')+'</div>'+
+          '<div class="inv-grid-label">MFA</div><div class="inv-grid-val">'+(r.mfaSatisfied?'Satisfied (step-up completed)':'Not satisfied')+'</div>'+
+        '</div>'+
+      '</div>'+
+
+      '<div class="inv-section" style="background:var(--surface-elevated); border-bottom:none;">'+
+        '<div class="assessment-boundary" style="border:none; padding:0;"><strong>Data Boundary:</strong> Risk above is observed pipeline danger. Threat severity and confidence are separate backend assessments and are not shown until the intelligence contract is connected.</div>'+
+      '</div>'+
+    '</div>';
+  renderFeed();
+}
+
+function addDecision(r){
+  liveDecisions=[r,...liveDecisions].slice(0,100);
+  feedEventCount=liveDecisions.length;
+  renderFeed();
+  renderOverviewTimeline();
+  renderMeshActivityLive();
+}
+
+/* =====================================================
+   HEALTH BAR
    ===================================================== */
 function updateHealthBar(m,v,ps){
   const chainOk=v.valid;
   const hasBlocks=m.byDecision&&(m.byDecision.BLOCK||0)>0;
   const dryRun=ps&&!ps.error&&ps.dryRun;
   let dotClass,statusClass,statusText;
-  if(!chainOk){dotClass='health-dot--crit';statusClass='crit';statusText='INTEGRITY COMPROMISED';}
-  else if(hasBlocks){dotClass='health-dot--warn';statusClass='warn';statusText='THREATS DETECTED';}
-  else{dotClass='health-dot--ok';statusClass='ok';statusText='OPERATIONAL';}
+  if(!chainOk){dotClass='status-dot-crit';statusClass='crit';statusText='INTEGRITY COMPROMISED';}
+  else if(hasBlocks){dotClass='status-dot-warn';statusClass='warn';statusText='THREATS DETECTED';}
+  else{dotClass='status-dot-ok';statusClass='ok';statusText='OPERATIONAL';}
   const dot=$('health-dot');
   const statusEl=$('health-status');
-  if(dot)dot.className='health-dot '+dotClass;
-  if(statusEl){statusEl.className='health-status-text '+statusClass;statusEl.textContent=statusText;}
+  if(dot)dot.className='status-dot-sm '+dotClass;
+  if(statusEl){statusEl.className='status-state '+statusClass;statusEl.textContent=statusText;}
+  const pageState=$('page-state');
+  const pageStateDot=$('page-state-dot');
+  if(pageState)pageState.textContent=statusText;
+  if(pageStateDot)pageStateDot.className='status-dot-sm '+dotClass;
   const totalEl=$('health-total');
   if(totalEl)totalEl.textContent=(m.total||0).toLocaleString()+' evaluated';
   const chainEl=$('health-chain');
@@ -796,10 +2200,20 @@ function updateHealthBar(m,v,ps){
   if(polEl)polEl.textContent=(ps&&!ps.error?ps.policyCount:'—')+' policies';
   const dryEl=$('health-dryrun');
   if(dryEl)dryEl.style.display=dryRun?'inline-flex':'none';
+
+  // Update audit status display in Controls > Audit sub-view
+  const auditStatusEl=$('audit-status-display');
+  if(auditStatusEl){
+    if(chainOk){
+      auditStatusEl.innerHTML='<div class="audit-chain-bar" style="padding:0 0 10px;"><div class="status-dot live"></div><span style="color:var(--allow);font-weight:700;">AUDIT CHAIN: INTACT</span><span class="sub" style="margin-left:6px;">'+v.checked+' entries verified</span></div>';
+    } else {
+      auditStatusEl.innerHTML='<div class="audit-chain-bar" style="padding:0 0 10px;"><div class="status-dot" style="background:var(--block);"></div><span style="color:var(--block);font-weight:700;">AUDIT CHAIN: COMPROMISED</span><span class="sub" style="margin-left:6px;">Broken at #'+v.brokenAtSeq+'</span></div>';
+    }
+  }
 }
 
 /* =====================================================
-   REFRESH METRICS (same API calls, updated UI rendering)
+   REFRESH METRICS
    ===================================================== */
 async function refreshMetrics(){
   try{
@@ -813,7 +2227,7 @@ async function refreshMetrics(){
     ]);
 
     if(m.error){
-      $('stats-container').innerHTML='<div class="sub" style="color:var(--block);">'+esc(m.error)+' — enter the admin key in the sidebar</div>';
+      $('stats-container').innerHTML='<div class="sub" style="color:var(--block);font-size:12px;">'+esc(m.error)+' — enter the admin key in the sidebar</div>';
       return;
     }
 
@@ -822,44 +2236,78 @@ async function refreshMetrics(){
     const l=m.pipelineLatency;
     const dryRunBadge=(ps&&!ps.error&&ps.dryRun)
       ?'<span class="badge bg-MONITOR">DRY RUN</span>'
-      :'<span style="font-size:13px;font-weight:600;color:var(--muted);">—</span>';
+      :'<span style="font-size:13px;font-weight:700;color:var(--muted);">—</span>';
 
     $('stats-container').innerHTML=
-      '<div class="metrics-block">'+
-        '<div class="metrics-group-header">Decisions</div>'+
-        '<div class="metrics-row">'+
+      '<div class="posture-block">'+
+        '<div class="posture-group-label">Decisions</div>'+
+        '<div class="posture-row">'+
           '<div class="metric-item"><div class="metric-value ALLOW">'+(m.byDecision.ALLOW||0)+'</div><div class="metric-label">Allow</div></div>'+
           '<div class="metric-item"><div class="metric-value STEP_UP_AUTH">'+(m.byDecision.STEP_UP_AUTH||0)+'</div><div class="metric-label">Step-Up</div></div>'+
           '<div class="metric-item"><div class="metric-value BLOCK">'+(m.byDecision.BLOCK||0)+'</div><div class="metric-label">Block</div></div>'+
         '</div>'+
       '</div>'+
-      '<div class="metrics-sep"></div>'+
-      '<div class="metrics-block">'+
-        '<div class="metrics-group-header">Operational</div>'+
-        '<div class="metrics-row">'+
+      '<div class="posture-block">'+
+        '<div class="posture-group-label">Operational</div>'+
+        '<div class="posture-row">'+
           '<div class="metric-item"><div class="metric-value">'+m.total+'</div><div class="metric-label">Total</div></div>'+
-          '<div class="metric-item"><div class="metric-value">'+m.requestsPerMinute+'</div><div class="metric-label">Req / Min</div></div>'+
-          '<div class="metric-item"><div class="metric-value">'+l.p50Ms+'<span class="metric-value-unit">ms</span></div><div class="metric-label">P50 Latency</div></div>'+
-          '<div class="metric-item"><div class="metric-value">'+l.p99Ms+'<span class="metric-value-unit">ms</span></div><div class="metric-label">P99 Latency</div></div>'+
+          '<div class="metric-item"><div class="metric-value">'+m.requestsPerMinute+'</div><div class="metric-label">Req/Min</div></div>'+
+          '<div class="metric-item"><div class="metric-value">'+l.p50Ms+'<span class="metric-value-unit">ms</span></div><div class="metric-label">P50</div></div>'+
+          '<div class="metric-item"><div class="metric-value">'+l.p99Ms+'<span class="metric-value-unit">ms</span></div><div class="metric-label">P99</div></div>'+
         '</div>'+
       '</div>'+
-      '<div class="metrics-sep"></div>'+
-      '<div class="metrics-block">'+
-        '<div class="metrics-group-header">Configuration</div>'+
-        '<div class="metrics-row">'+
+      '<div class="posture-block">'+
+        '<div class="posture-group-label">Configuration</div>'+
+        '<div class="posture-row">'+
           '<div class="metric-item"><div class="metric-value">'+(ps&&!ps.error?ps.policyCount:'—')+'</div><div class="metric-label">Policies</div></div>'+
-          '<div class="metric-item"><div class="metric-value">'+(jwks&&!jwks.error&&jwks.keys?jwks.keys.length:'—')+'</div><div class="metric-label">Public Keys</div></div>'+
-          '<div class="metric-item" style="padding-top:2px;">'+dryRunBadge+'<div class="metric-label" style="margin-top:6px;">Dry Run</div></div>'+
+          '<div class="metric-item"><div class="metric-value">'+(jwks&&!jwks.error&&jwks.keys?jwks.keys.length:'—')+'</div><div class="metric-label">Pub. Keys</div></div>'+
+          '<div class="metric-item" style="padding-top:2px;">'+dryRunBadge+'<div class="metric-label" style="margin-top:5px;">Dry Run</div></div>'+
         '</div>'+
       '</div>';
 
-    /* Audit chain bar */
+    /* Decision distribution (authoritative REST counts) */
+    const distEl=$('decision-distribution');
+    const distLegend=$('decision-distribution-legend');
+    if(distEl&&distLegend){
+      const allow=m.byDecision.ALLOW||0, mon=m.byDecision.MONITOR||0, step=m.byDecision.STEP_UP_AUTH||0, block=m.byDecision.BLOCK||0;
+      const total=Math.max(1,allow+mon+step+block);
+      distEl.hidden=false;distLegend.hidden=false;
+      const pct=(n)=>((n/total)*100).toFixed(1)+'%';
+      distEl.innerHTML=
+        '<span style="width:'+pct(allow)+';background:var(--allow);" title="Allow '+allow+'"></span>'+
+        '<span style="width:'+pct(mon)+';background:var(--warning);" title="Monitor '+mon+'"></span>'+
+        '<span style="width:'+pct(step)+';background:var(--info);" title="Step-up '+step+'"></span>'+
+        '<span style="width:'+pct(block)+';background:var(--block);" title="Block '+block+'"></span>';
+      distLegend.innerHTML=
+        '<span><b class="ALLOW">'+allow+'</b> allow</span>'+
+        '<span><b class="MONITOR">'+mon+'</b> monitor</span>'+
+        '<span><b class="STEP_UP_AUTH">'+step+'</b> step-up</span>'+
+        '<span><b class="BLOCK">'+block+'</b> block</span>'+
+        '<span>'+m.total+' total evaluated</span>';
+    }
+
+    /* Sidebar system status + nav counts (all authoritative REST data) */
+    const setSide=(id,text,cls)=>{
+      const e=$(id);
+      if(e){e.textContent=text;e.className=cls||'';}
+    };
+    setSide('side-audit',v.valid?('intact · '+v.checked):('BROKEN @ #'+v.brokenAtSeq),v.valid?'ok':'bad');
+    setSide('side-quarantine',String((q&&q.length)||0),(q&&q.length)?'bad':'ok');
+    setSide('side-policies',String((ps&&!ps.error)?ps.policyCount:'—'));
+    const nPol=$('nav-count-policies');
+    if(nPol)nPol.textContent=(ps&&!ps.error)?ps.policyCount:'—';
+    const nQ=$('nav-count-quarantine');
+    if(nQ){nQ.textContent=String((q&&q.length)||0);nQ.className='nav-count'+(((q&&q.length)||0)>0?' alert':'');}
+    const nR=$('nav-count-recs');
+    if(nR&&recs&&!recs.error)nR.textContent=String((recs.recommendations||[]).length);
+
+    /* Audit chain bar (Containment sub-view) */
     const chainBar=$('audit-chain-bar');
     if(chainBar){
       if(v.valid){
-        chainBar.innerHTML='<div class="status-dot live"></div><span style="color:var(--allow);font-weight:700;">AUDIT CHAIN: INTACT</span><span class="sub" style="margin-left:4px;">'+v.checked+' entries verified</span>';
+        chainBar.innerHTML='<div class="status-dot live"></div><span style="color:var(--allow);font-weight:700;">AUDIT CHAIN: INTACT</span><span class="sub" style="margin-left:6px;">'+v.checked+' entries verified</span>';
       } else {
-        chainBar.innerHTML='<div class="status-dot" style="background:var(--block);"></div><span style="color:var(--block);font-weight:700;">AUDIT CHAIN: COMPROMISED</span><span class="sub" style="margin-left:4px;">Broken at #'+v.brokenAtSeq+'</span>';
+        chainBar.innerHTML='<div class="status-dot" style="background:var(--block);"></div><span style="color:var(--block);font-weight:700;">AUDIT CHAIN: COMPROMISED</span><span class="sub" style="margin-left:6px;">Broken at #'+v.brokenAtSeq+'</span>';
       }
     }
 
@@ -871,7 +2319,7 @@ async function refreshMetrics(){
         '<tbody>'+q.map((e)=>
           '<tr>'+
             '<td><strong style="font-family:var(--mono);font-size:12px;">'+esc(e.serviceId)+'</strong></td>'+
-            '<td><span class="badge bg-BLOCK">'+esc(e.reason).replace(/_/g,' ')+'</span></td>'+
+            '<td>'+badge('BLOCK')+' '+esc(e.reason).replace(/_/g,' ')+'</td>'+
             '<td style="color:var(--text-secondary);font-size:12px;">'+new Date(e.until).toLocaleTimeString()+'</td>'+
           '</tr>').join('')+
         '</tbody></table></div>';
@@ -883,49 +2331,76 @@ async function refreshMetrics(){
         '</div>';
     }
 
-    /* Recommendations */
+    /* Recommendations — full view */
     if(recs&&!recs.error){
-      if(recs.recommendations&&recs.recommendations.length>0){
-        $('recs').innerHTML=
-          '<div class="recs-table">'+
-          '<div class="recs-header-row"><div class="recs-header-cell">Type</div><div class="recs-header-cell">Finding</div></div>'+
-          recs.recommendations.map((r)=>
-            '<div class="rec-row">'+
-              '<div class="rec-type-cell">'+badge(r.type==='INSUFFICIENT_DATA'?'MONITOR':'INFO')+'</div>'+
-              '<div class="rec-finding">'+esc(r.message)+'</div>'+
-            '</div>').join('')+
-          '</div>';
-      } else {
-        $('recs').innerHTML=
-          '<div class="recs-table">'+
-            '<div class="recs-empty">No recommendations at this time. All observed traffic is within expected policy scope.</div>'+
-          '</div>';
+      const recsHtml=buildRecsHtml(recs);
+      const recsEl=$('recs');
+      if(recsEl)recsEl.innerHTML=recsHtml;
+      // Overview mini-recs
+      const overviewRecs=$('recs-overview');
+      if(overviewRecs){
+        if(recs.recommendations&&recs.recommendations.length>0){
+          overviewRecs.innerHTML=recs.recommendations.slice(0,4).map((r)=>
+            '<div style="display:flex;gap:8px;align-items:flex-start;padding:9px 16px;border-bottom:1px solid var(--border);">'+
+              badge(r.type==='INSUFFICIENT_DATA'?'MONITOR':'INFO')+
+              '<span style="font-size:11.5px;color:var(--text-primary);line-height:1.45;">'+esc(r.message)+'</span>'+
+            '</div>'
+          ).join('')+
+          (recs.recommendations.length>4?'<div style="padding:8px 16px;font-size:11px;color:var(--muted);">+' +(recs.recommendations.length-4)+' more &rarr; Response &gt; Recommendations</div>':'');
+        } else {
+          overviewRecs.innerHTML='<div style="padding:16px;color:var(--muted);font-size:12px;">No recommendations. All observed traffic is within expected policy scope.</div>';
+        }
       }
     }
 
   } catch(e){ console.error(e); }
 }
 
+function buildRecsHtml(recs){
+  if(recs.recommendations&&recs.recommendations.length>0){
+    return '<div class="recs-table">'+
+      '<div class="recs-header-row"><div class="recs-header-cell">Type</div><div class="recs-header-cell">Finding</div></div>'+
+      recs.recommendations.map((r)=>
+        '<div class="rec-row">'+
+          '<div class="rec-type-cell">'+badge(r.type==='INSUFFICIENT_DATA'?'MONITOR':'INFO')+'</div>'+
+          '<div class="rec-finding">'+esc(r.message)+'</div>'+
+        '</div>').join('')+
+      '</div>';
+  } else {
+    return '<div class="recs-table"><div class="recs-empty">No recommendations at this time. All observed traffic is within expected policy scope.</div></div>';
+  }
+}
+
 /* =====================================================
-   LOAD STATIC (same API calls, updated UI rendering)
+   LOAD STATIC DATA (policies, services, simulator)
    ===================================================== */
 async function loadStatic(){
   try{
     const [svc,pol]=await Promise.all([api('/api/services'),api('/api/policies')]);
     if(!Array.isArray(pol))return;
 
-    $('policies').innerHTML=
+    const meshPolicyCount=$('mesh-policy-count');
+    const meshServiceCount=$('mesh-service-count');
+    if(meshPolicyCount)meshPolicyCount.textContent=pol.length;
+    if(meshServiceCount)meshServiceCount.textContent=Array.isArray(svc)?svc.length:'—';
+
+    // Policy meta for controls view
+    const ctrlMeta=$('ctrl-policy-meta');
+    if(ctrlMeta)ctrlMeta.textContent=pol.length+' policies · '+(Array.isArray(svc)?svc.length:'—')+' services';
+
+    // Policy table HTML
+    const policyTableHtml=
       '<thead><tr>'+
-        '<th style="width:110px;">Policy ID</th>'+
+        '<th style="width:106px;">Policy ID</th>'+
         '<th>Source → Destination</th>'+
-        '<th style="width:110px;">Methods</th>'+
+        '<th style="width:100px;">Methods</th>'+
         '<th>Allowed Paths</th>'+
       '</tr></thead><tbody>'+
       pol.map((p)=>
         '<tr>'+
           '<td style="font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap;">'+esc(p.id||'—')+'</td>'+
           '<td>'+
-            '<div style="font-weight:700;font-size:13px;margin-bottom:3px;font-family:var(--mono);">'+
+            '<div style="font-weight:700;font-size:12.5px;margin-bottom:2px;font-family:var(--mono);">'+
               esc(p.source)+' <span style="color:var(--muted);font-weight:400;">→</span> '+esc(p.destination)+
             '</div>'+
             '<div class="sub">'+esc(p.description)+'</div>'+
@@ -933,13 +2408,20 @@ async function loadStatic(){
           '<td><code>'+esc(p.methods.join(', '))+'</code></td>'+
           '<td>'+
             '<code>'+esc((p.allowPaths||['*']).join(' '))+'</code>'+
-            (p.denyPaths?'<div style="margin-top:6px;"><span class="deny-label">Deny:</span> <code>'+esc(p.denyPaths.join(' '))+'</code></div>':'')+
+            (p.denyPaths?'<div style="margin-top:5px;"><span class="deny-label">Deny:</span> <code>'+esc(p.denyPaths.join(' '))+'</code></div>':'')+
           '</td>'+
         '</tr>').join('')+
-      '<tr><td colspan="4" style="text-align:center;color:var(--muted);font-size:11.5px;padding:11px 16px;">'+
-        svc.length+' registered services · Any unlisted pair is blocked'+
+      '<tr><td colspan="4" style="text-align:center;color:var(--muted);font-size:11px;padding:10px 15px;">'+
+        (Array.isArray(svc)?svc.length:'—')+' registered services · Any unlisted pair is blocked'+
       '</td></tr></tbody>';
 
+    // Populate both policy tables (mesh view + controls view)
+    const meshTable=$('policies');
+    if(meshTable)meshTable.innerHTML=policyTableHtml;
+    const ctrlTable=$('ctrl-policies-table');
+    if(ctrlTable)ctrlTable.innerHTML=policyTableHtml;
+
+    // Load simulator scenarios
     const sc=await api('/api/simulator/scenarios');
     let html='';
     let attackHeaderAdded=false;
@@ -967,25 +2449,24 @@ async function loadStatic(){
 }
 
 /* =====================================================
-   RENDER SIM (same logic, updated UI rendering)
+   SIMULATOR
    ===================================================== */
 function renderSim(r){
-  const box=$('s-'+r.id).querySelector('.sim-result');
+  const scEl=$('s-'+r.id);
+  if(!scEl)return;
+  const box=scEl.querySelector('.sim-result');
   box.style.display='block';
   box.innerHTML=
     '<div class="sim-result-verdict '+(r.passed?'ALLOW':'BLOCK')+'">'+(r.passed?'✔ Defence worked as expected':'✖ Unexpected Result')+'</div>'+
     r.steps.map((s)=>
       '<div class="sim-step">'+
-        '<span style="width:94px;flex-shrink:0;">'+badge(s.decision)+'</span>'+
+        '<span style="width:90px;flex-shrink:0;">'+badge(s.decision)+'</span>'+
         '<span class="sim-step-label">'+esc(s.label)+'</span>'+
         '<span class="sim-step-reason">'+esc(s.reason)+'</span>'+
         (s.riskScore!=null&&s.riskScore>0?'<span class="sim-step-risk '+(s.riskScore>=50?'BLOCK':'MONITOR')+'">Risk '+s.riskScore+'</span>':'')+
       '</div>').join('');
 }
 
-/* =====================================================
-   RUN (unchanged)
-   ===================================================== */
 async function run(id){renderSim(await api('/api/simulator/'+id,{method:'POST'}));refreshMetrics();}
 
 $('runAll').onclick=async()=>{
@@ -1006,7 +2487,7 @@ $('runAll').onclick=async()=>{
 };
 
 /* =====================================================
-   WEBSOCKET (same logic, updated row HTML + feed counter)
+   WEBSOCKET
    ===================================================== */
 function connect(){
   const url=(location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws'+
@@ -1014,11 +2495,11 @@ function connect(){
   const ws=new WebSocket(url);
 
   ws.onopen=()=>{
-    $('ws-text').textContent='Live Feed Connected';
+    $('ws-text').textContent='Feed Connected';
     $('ws-dot').classList.add('live');
     const hwDot=$('health-ws-dot');
     const hwText=$('health-ws-text');
-    if(hwDot){hwDot.className='health-dot health-dot--ok';}
+    if(hwDot){hwDot.className='status-dot-sm status-dot-ok';}
     if(hwText)hwText.textContent='Feed Connected';
   };
 
@@ -1027,52 +2508,24 @@ function connect(){
     $('ws-dot').classList.remove('live');
     const hwDot=$('health-ws-dot');
     const hwText=$('health-ws-text');
-    if(hwDot){hwDot.className='health-dot health-dot--warn';}
+    if(hwDot){hwDot.className='status-dot-sm status-dot-warn';}
     if(hwText)hwText.textContent='Reconnecting…';
     setTimeout(connect,2000);
   };
 
   ws.onmessage=(e)=>{
     const r=JSON.parse(e.data).data;
-    const feedEmpty=$('feed').querySelector('.feed-empty');
-    if(feedEmpty)feedEmpty.remove();
-    feedEventCount++;
-    updateFeedCount();
-
-    let borderColor='transparent';
-    if(r.decision==='BLOCK')borderColor='var(--block)';
-    else if(r.decision==='STEP_UP_AUTH'||r.decision==='MONITOR')borderColor='var(--warning)';
-
-    const riskHtml=r.riskScore>0
-      ?'<span class="risk-score '+(r.riskScore>=50?'risk-high':'risk-medium')+'">Risk '+r.riskScore+'</span>'
-      :'';
-
-    const div=document.createElement('div');
-    div.className='event-row';
-    div.style.borderLeftColor=borderColor;
-    div.innerHTML=
-      '<div class="event-col-decision">'+
-        badge(r.decision)+
-        '<span class="event-time">'+new Date(r.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})+'</span>'+
-      '</div>'+
-      '<div class="event-col-service">'+
-        '<span class="event-service">'+esc(r.source||'Unknown')+'<span class="event-arrow"> → </span>'+esc(r.destination||'Unknown')+'</span>'+
-      '</div>'+
-      '<div class="event-col-detail">'+
-        '<span class="event-reason">'+esc(r.reason)+'</span>'+
-        '<span class="event-path">'+esc(r.method)+' '+esc(r.path)+'</span>'+
-      '</div>'+
-      '<div class="event-col-risk">'+riskHtml+'</div>';
-
-    $('feed').prepend(div);
-    while($('feed').children.length>50)$('feed').lastChild.remove();
+    if(!r||r.type&&r.type!=='decision')return;
+    addDecision(r);
   };
 }
 
 /* =====================================================
-   INIT (unchanged)
+   INIT
    ===================================================== */
 $('key').addEventListener('change',()=>location.reload());
+$('decision-filter').addEventListener('change',renderFeed);
+$('decision-search').addEventListener('input',renderFeed);
 loadStatic();
 refreshMetrics();
 connect();

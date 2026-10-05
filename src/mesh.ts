@@ -59,7 +59,7 @@ export function createMesh(config: MeshConfig, opts: MeshOptions = {}) {
   const bus = new EventBus();
   const risk = new RiskEngine(config);
   const usage = new UsageTracker(clock);
-  const threats = new ThreatIntelligence();
+  const threats = new ThreatIntelligence(config.threatCorrelation, clock);
 
   const pipeline = new SecurityPipeline({
     config,

@@ -1,4 +1,5 @@
 import type { PipelineResult, RiskFactor } from '../types.js';
+import type { LateralResult } from '../detection/lateralMovement.js';
 import type { Evidence, EvidenceFacts, EvidenceKind, EvidenceReliability, NormalizedSignal, SignalDisposition, SignalRole, SignalType, ThreatCategory, ThreatFinding, ThreatObservation, ThreatSeverity } from './contracts.js';
 
 const DETECTOR = { name: 'security-pipeline', version: '1' } as const;
@@ -11,6 +12,11 @@ interface Mapping {
   contextualCategories?: ThreatCategory[];
   kind: EvidenceKind;
   reliability: EvidenceReliability;
+}
+
+/** Internal-only context preserves detector facts without changing PipelineResult or its public consumers. */
+export interface ThreatObservationContext {
+  lateral?: LateralResult;
 }
 
 const FACTOR_MAPPINGS: Record<string, Mapping> = {
@@ -47,7 +53,7 @@ const HARD_MAPPINGS: Record<string, Mapping> = {
 };
 
 /** Convert a completed pipeline verdict into additive, bounded threat contracts. */
-export function normalizePipelineResult(result: PipelineResult): ThreatObservation {
+export function normalizePipelineResult(result: PipelineResult, context: ThreatObservationContext = {}): ThreatObservation {
   const pairs: Array<{ mapping: Mapping; disposition: SignalDisposition; factor?: RiskFactor; dryRun?: boolean }> = [];
   for (const factor of result.factors) {
     const mapping = FACTOR_MAPPINGS[factor.code];
@@ -71,7 +77,9 @@ export function normalizePipelineResult(result: PipelineResult): ThreatObservati
     const evidenceId = `${result.requestId}:evidence:${suffix}`;
     const signalId = `${result.requestId}:signal:${suffix}`;
     const facts: EvidenceFacts = factor
-      ? { factorCode: factor.code, points: factor.points, detail: factor.detail }
+      ? factor.code === 'LATERAL_MOVEMENT' && context.lateral
+        ? { factorCode: factor.code, points: factor.points, detail: factor.detail, path: context.lateral.path, distinctHops: context.lateral.hops, declaredWorkflow: context.lateral.knownWorkflow }
+        : { factorCode: factor.code, points: factor.points, detail: factor.detail }
       : { reason: result.reason, method: result.method, path: result.path, dryRun: !!dryRun };
     const item: Evidence = {
       evidenceId,

@@ -107,6 +107,18 @@ export interface MeshConfig {
     maxPoints: number;
   };
 
+  // ── Threat correlation (observational only) ─────────────────────────────
+  threatCorrelation: {
+    /** Max age for service/edge/category finding correlation. */
+    windowMs: number;
+    /** Max age for a trace-correlated finding; kept separate from enforcement. */
+    traceWindowMs: number;
+    /** Upper bound for active in-memory findings and correlation keys. */
+    maxActiveFindings: number;
+    /** Upper bound for evidence and risk-contribution references per finding. */
+    maxEvidencePerFinding: number;
+  };
+
   /**
    * Severity (0-100) reported for HARD failures — requests that are rejected
    * outright before/without soft risk scoring (bad signature, replay, no policy…).
@@ -203,6 +215,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): MeshConfig {
       depthPoints: 25,
       zScorePoints: 15,
       maxPoints: 50,
+    },
+
+    threatCorrelation: {
+      windowMs: num(env, 'THREAT_CORRELATION_WINDOW_MS', 60_000),
+      traceWindowMs: num(env, 'THREAT_TRACE_CORRELATION_WINDOW_MS', 1_000),
+      maxActiveFindings: num(env, 'THREAT_MAX_ACTIVE_FINDINGS', 5_000),
+      maxEvidencePerFinding: num(env, 'THREAT_MAX_EVIDENCE_PER_FINDING', 100),
     },
 
     hardFailSeverity: {

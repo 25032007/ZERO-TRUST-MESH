@@ -102,7 +102,7 @@ export interface ThreatFinding {
   affectedServices: string[];
   correlationKey?: string;
   decisionContext: { decision: Decision; reason: string; hardOverride?: boolean };
-  attackPath?: { services: string[]; traceId?: string };
+  attackPath?: { services: string[]; traceId?: string; observedAt?: number[] };
   policyContext?: { policyId?: string; reason: string; dryRun: boolean };
   recurrence?: { count: number; firstSeenAt: number; lastSeenAt: number };
 }

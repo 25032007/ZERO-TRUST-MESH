@@ -36,6 +36,7 @@ import type { QuarantineService } from '../security/quarantine.js';
 import type { RateLimiter } from '../security/rateLimiter.js';
 import type { TokenVerifier } from '../token/tokenVerifier.js';
 import type { ThreatIntelligence } from '../threat/threatIntelligence.js';
+import type { ThreatObservationContext } from '../threat/normalizer.js';
 import type { Decision, PipelineInput, PipelineResult, RiskFactor, StageTrace } from '../types.js';
 
 export interface PipelineDeps {
@@ -82,6 +83,7 @@ export class SecurityPipeline {
     const stages: StageTrace[] = [];
     /** Filled in by stage 4 when dry-run mode lets a policy denial through. */
     let dryRunViolation: PipelineResult['dryRunViolation'];
+    let threatContext: ThreatObservationContext | undefined;
 
     /** Attach timing, write the audit record, update metrics, notify the dashboard. */
     const finish = (v: Verdict): PipelineResult => {
@@ -124,7 +126,7 @@ export class SecurityPipeline {
       // Threat contracts are observational. A future enrichment bug must never
       // change the already-finalised security verdict or interrupt the proxy.
       try {
-        this.d.threats.observe(result);
+        this.d.threats.observe(result, threatContext);
       } catch {
         // No-op by design: audit, metrics, and the decision event were recorded first.
       }
@@ -203,6 +205,7 @@ export class SecurityPipeline {
 
     // ── 6. LATERAL MOVEMENT ────────────────────────────────────────────────
     const lateral = this.d.lateral.observe(input.traceId, source, input.destination, now);
+    threatContext = { lateral };
     stages.push({
       stage: 'lateral_movement',
       outcome: lateral.detected ? 'flag' : 'pass',

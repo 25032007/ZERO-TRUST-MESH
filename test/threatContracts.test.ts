@@ -18,7 +18,7 @@ const result = (over: Partial<PipelineResult> = {}): PipelineResult => ({
 
 test('Phase 1 contracts carry their required fields', () => {
   const signal: NormalizedSignal = {
-    signalId: 's', occurredAt: 1, type: 'NEW_SERVICE_PAIR', detector: { name: 'test', version: '1' }, disposition: 'observed', primaryCategory: 'SERVICE_GRAPH_ANOMALY', evidenceRefs: [],
+    signalId: 's', occurredAt: 1, type: 'NEW_SERVICE_PAIR', detector: { name: 'test', version: '1' }, disposition: 'observed', role: 'threat_signal', primaryCategory: 'SERVICE_GRAPH_ANOMALY', evidenceRefs: [],
   };
   const evidence: Evidence = {
     evidenceId: 'e', kind: 'graph', observedAt: 1, detector: { name: 'test', version: '1' }, facts: {}, reliability: 'contextual', completeness: 'complete',
@@ -34,6 +34,32 @@ test('Phase 1 contracts carry their required fields', () => {
   assert.equal(evidence.kind, 'graph');
   assert.equal(finding.category, 'SERVICE_GRAPH_ANOMALY');
   assert.equal(recommendation.category, 'MONITOR');
+});
+
+test('sensitive endpoints are contextual evidence, not threat classification', () => {
+  const observation = normalizePipelineResult(result({
+    factors: [{ code: 'SENSITIVE_ENDPOINT', points: 10, detail: 'GET database-service/database/rows is a sensitive target' }],
+    riskScore: 10,
+  }));
+  const signal = observation.signals[0];
+  assert.equal(signal.role, 'contextual_evidence');
+  assert.equal(signal.primaryCategory, undefined);
+  assert.deepEqual(signal.contextualCategories, ['SERVICE_GRAPH_ANOMALY', 'RECONNAISSANCE_PROBING', 'REQUEST_PAYLOAD_ABUSE']);
+  assert.equal(signal.riskContribution?.points, 10);
+  assert.equal(observation.findings.length, 0);
+});
+
+test('rate limiting and quarantine remain non-threat enforcement semantics', () => {
+  const limited = normalizePipelineResult(result({ decision: 'BLOCK', httpStatus: 429, reason: 'RATE_LIMITED', riskScore: 50 }));
+  assert.equal(limited.signals[0].role, 'control_outcome');
+  assert.equal(limited.signals[0].primaryCategory, undefined);
+  assert.equal(limited.findings.length, 0);
+
+  const quarantined = normalizePipelineResult(result({ decision: 'BLOCK', httpStatus: 403, reason: 'SERVICE_QUARANTINED', riskScore: 100 }));
+  assert.equal(quarantined.signals[0].type, 'QUARANTINE');
+  assert.equal(quarantined.signals[0].role, 'decision_context');
+  assert.equal(quarantined.signals[0].primaryCategory, undefined);
+  assert.equal(quarantined.findings.length, 0);
 });
 
 test('mapping assigns one owner category and secondary categories are contextual', () => {

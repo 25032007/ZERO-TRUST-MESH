@@ -40,6 +40,8 @@ export type SignalType =
   | 'RATE_LIMITED';
 
 export type SignalDisposition = 'observed' | 'hard_failure' | 'dry_run';
+/** Distinguishes threat classification from supporting context and enforcement outcomes. */
+export type SignalRole = 'threat_signal' | 'contextual_evidence' | 'control_outcome' | 'decision_context';
 export type EvidenceKind = 'authentication' | 'token' | 'policy' | 'payload' | 'rate' | 'baseline' | 'graph' | 'trace' | 'identity' | 'quarantine';
 export type EvidenceReliability = 'deterministic' | 'statistical' | 'contextual';
 export type EvidenceCompleteness = 'complete' | 'partial';
@@ -58,10 +60,14 @@ export interface NormalizedSignal {
   correlationId?: string;
   detector: { name: string; version: string };
   disposition: SignalDisposition;
+  role: SignalRole;
   measurement?: { value?: number; baseline?: number; threshold?: number; deviation?: number };
   riskContribution?: { id: string; points: number; factorCode: string };
-  primaryCategory: ThreatCategory;
+  /** Present only when this signal independently classifies a threat. */
+  primaryCategory?: ThreatCategory;
   secondaryCategories?: ThreatCategory[];
+  /** Categories this evidence may support without independently classifying one. */
+  contextualCategories?: ThreatCategory[];
   evidenceRefs: string[];
   metadata?: EvidenceFacts;
 }

@@ -222,3 +222,42 @@ test('threat finding events arrive versioned on the existing WS connection along
   assert.ok(seen.threat!.findingId.length > 0);
   ws.close();
 });
+
+// ── Summary endpoint: badge counts from the same state, nothing new ──────────
+
+test('threat summary returns the active count plus a bounded preview', async () => {
+  const summary = (await get('/api/threats/summary')) as { totalActiveFindings: number; findings: Array<{ findingId: string; category: string; severity: string; riskScore: number }> };
+  assert.equal(typeof summary.totalActiveFindings, 'number');
+  assert.ok(Array.isArray(summary.findings));
+  assert.ok(summary.findings.length <= 5, 'preview stays bounded');
+  for (const f of summary.findings) {
+    assert.ok(f.findingId.length > 0 && f.category.length > 0 && f.severity.length > 0);
+    assert.equal(typeof f.riskScore, 'number');
+  }
+});
+
+test('threat summary count matches the unfiltered findings list total', async () => {
+  const summary = (await get('/api/threats/summary')) as { totalActiveFindings: number };
+  const list = (await get('/api/threats/findings?limit=200')) as { total: number };
+  assert.equal(summary.totalActiveFindings, list.total);
+});
+
+test('threat summary on a fresh app is an honest empty, and stays key-protected in private mode', async () => {
+  const priv = await createApp(loadConfig({ ADMIN_API_KEY: 'priv-summary-key', PUBLIC_DASHBOARD: 'false', PORT: '0' }));
+  const port = await priv.listen(0);
+  const url = `http://127.0.0.1:${port}/api/threats/summary`;
+  try {
+    assert.equal((await fetch(url)).status, 401);
+    const res = await fetch(url, { headers: { 'x-admin-key': 'priv-summary-key' } });
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), { totalActiveFindings: 0, findings: [] });
+  } finally {
+    await priv.close();
+  }
+});
+
+test('threat summary exposes no secrets, tokens, or payloads', async () => {
+  const summary = await get('/api/threats/summary');
+  const blob = JSON.stringify(summary);
+  assert.ok(!/Bearer eyJ|BEGIN .*PRIVATE|totpSecret|password|x-mesh-internal/i.test(blob));
+});

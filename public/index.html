@@ -1160,6 +1160,12 @@ code{
 .finding-row.sev-C{border-left-color:var(--block);}
 .finding-main{font:600 11.5px var(--mono);color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .finding-sub{font-size:10.5px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* Phase 6B: live new/updated markers. Restrained dot + label treatment —
+   triage aid only. NEW means "surfaced in this session", never higher risk. */
+.mk{display:inline-block;font:700 8.5px var(--mono);letter-spacing:.6px;text-transform:uppercase;
+  border:1px solid var(--border);border-radius:2px;padding:0 4px;margin-left:6px;
+  color:var(--text-secondary);vertical-align:1px;white-space:nowrap;}
+.mk-new{color:var(--info);border-color:var(--info);}
 .finding-nums{display:flex;gap:10px;align-items:baseline;justify-content:flex-end;font-family:var(--mono);white-space:nowrap;}
 /* Attack path chain: ordered services from the correlator, rendered as-is */
 .path-chain{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font:600 11.5px var(--mono);color:var(--text-primary);}
@@ -1332,7 +1338,7 @@ button:focus-visible{outline:1px solid var(--sidebar-active-text);outline-offset
       <div class="nav-group-label">Threat Intelligence</div>
       <button class="nav-item" data-view="intelligence" data-sub="findings" type="button">
         <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 14 14"><path d="M7 1.5l5 2.2v3c0 2.6-2 4.4-5 5.8-3-1.4-5-3.2-5-5.8v-3z"/><path d="M7 4.5v3"/></svg></span>Threat Findings
-        <span class="nav-badge" id="nav-badge-threats">0</span>
+        <span class="nav-badge" id="nav-badge-threats" title="Active threat findings (authoritative backend total)" aria-label="Active threat findings: 0">0</span>
       </button>
       <button class="nav-item" data-view="intelligence" data-sub="investigations" type="button">
         <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 14 14"><circle cx="6" cy="6" r="3.5"/><path d="M8.8 8.8L12.5 12.5"/></svg></span>Investigations
@@ -2136,8 +2142,10 @@ function renderAttentionQueue(){
   const flagged=liveDecisions.filter((r)=>r.decision&&r.decision!=='ALLOW').slice(0,topFindings.length?3:5);
   const meta=$('attention-meta');
   if(meta){
+    // Shortlist wording only — "top N findings" never claims to be the
+    // system total. The authoritative active count lives on the badge/strip.
     const parts=[];
-    if(topFindings.length)parts.push(topFindings.length+' FINDING'+(topFindings.length===1?'':'S'));
+    if(topFindings.length)parts.push('TOP '+topFindings.length+' FINDING'+(topFindings.length===1?'':'S'));
     if(flagged.length)parts.push(flagged.length+' FLAGGED');
     meta.textContent=parts.length?parts.join(' · '):'SESSION TRIAGE';
   }
@@ -2160,9 +2168,9 @@ function renderAttentionQueue(){
     b.type='button';
     b.className='attention-row attn-'+(f.severity==='CRITICAL'||f.severity==='HIGH'?'block':'monitor');
     b.dataset.fk='aqf-'+f.findingId;
-    b.setAttribute('aria-label','Open '+f.severity+' '+f.category+' finding, risk '+(f.riskScore||0));
+    b.setAttribute('aria-label','Open '+f.severity+' '+f.category+' finding, risk '+(f.riskScore||0)+markSuffix(f.findingId));
     b.innerHTML=
-      '<span><span class="attention-route"><b class="'+sevClass(f.severity)+'" style="font-size:10.5px;">'+esc(f.severity)+'</b> '+esc(f.category).replace(/_/g,' ')+'</span><br>'+
+      '<span><span class="attention-route"><b class="'+sevClass(f.severity)+'" style="font-size:10.5px;">'+esc(f.severity)+'</b>'+markChip(f.findingId)+' '+esc(f.category).replace(/_/g,' ')+'</span><br>'+
       '<span class="attention-reason">'+esc(f.reason).replace(/_/g,' ')+' · '+esc(f.source||'?')+' → '+esc(f.destination||'?')+'</span></span>'+
       '<span><span class="attention-risk '+riskLevelClass(f.riskLevel)+'">'+esc(f.riskScore||0)+'</span><br>'+
       '<span class="attention-inspect">Finding →</span></span>';
@@ -2657,6 +2665,10 @@ let invKey='';
 let findingReturn=null;
 // P0-2: finding to offer a return to from the investigation view.
 let invReturnFinding=null;
+// Phase 6B: frontend-only live markers, keyed by stable findingId.
+// 'new' = surfaced by WS and not yet opened; 'updated' = changed since
+// opened. Absence = seen. Never sent anywhere; pruned on list reload.
+const findingMarks={};
 
 function loadIntelSub(sub){
   if(sub==='findings')loadThreatFindings();
@@ -2682,6 +2694,10 @@ async function loadThreatFindings(){
     threatFindings=body.findings||[];
     threatTotal=body.total||0;
     threatLoaded=true;
+    // Drop marks for expired findings so marker state stays bounded.
+    for(const id of Object.keys(findingMarks)){
+      if(!threatFindings.some((f)=>f.findingId===id))delete findingMarks[id];
+    }
     renderFindings();
     refreshInvOptions();
     refreshThreatSummary();
@@ -2704,7 +2720,12 @@ async function refreshThreatSummary(){
   const s=await fetchThreatSummary();
   const badge=$('nav-badge-threats');
   if(badge){
-    if(s.body)badge.textContent=String(s.body.totalActiveFindings||0);
+    // Badge scope is always the authoritative active total; the list-derived
+    // fallback is used only when the summary itself is unreachable.
+    if(s.body){
+      badge.textContent=String(s.body.totalActiveFindings||0);
+      badge.setAttribute('aria-label','Active threat findings: '+(s.body.totalActiveFindings||0));
+    }
     else if(!s.denied&&threatLoaded)badge.textContent=String(threatTotal);
   }
   renderThreatStrip(s.body||null,s.denied);
@@ -2749,7 +2770,7 @@ function renderThreatStrip(body,denied){
       '</div>'+
       (top?'<div style="display:flex;gap:10px;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);flex-wrap:wrap;">'+
         '<span class="sub">Top priority:</span>'+
-        '<b class="'+sevClass(top.severity)+'" style="font-size:11px;">'+esc(top.severity)+'</b>'+
+        '<b class="'+sevClass(top.severity)+'" style="font-size:11px;">'+esc(top.severity)+'</b>'+markChip(top.findingId)+
         '<span style="font-size:12px;">'+esc(top.category).replace(/_/g,' ')+' · '+esc(top.reason).replace(/_/g,' ')+'</span>'+
         '<span class="sub">risk '+esc(top.riskScore)+' · conf '+esc(top.confidenceScore)+' · '+esc(top.source||'?')+' → '+esc(top.destination||'?')+'</span>'+
         '<button class="btn btn-secondary btn-sm" id="threat-strip-open" type="button">Open</button>'+
@@ -2773,6 +2794,19 @@ function inspectFinding(findingId,returnTo){
 }
 
 function sevClass(s){return s==='CRITICAL'?'sev-CRITICAL':s==='HIGH'?'sev-HIGH':s==='MEDIUM'?'sev-MEDIUM':'sev-LOW';}
+// Phase 6B: marker chip + label suffix. Meaning is display-only:
+// NEW = surfaced in this session (not higher risk); UPDATED = displayed
+// data changed since the operator saw it. Seen findings render neither.
+function markChip(id){
+  const m=findingMarks[id];
+  if(m==='new')return '<span class="mk mk-new" title="New in this session — newly surfaced, not higher risk">New</span>';
+  if(m==='updated')return '<span class="mk" title="Updated since you saw it — displayed data changed">Updated</span>';
+  return '';
+}
+function markSuffix(id){
+  const m=findingMarks[id];
+  return m==='new'?', new in this session':(m==='updated'?', updated since seen':'');
+}
 function sevRank(s){return s==='CRITICAL'?'C':s==='HIGH'?'H':s==='MEDIUM'?'M':'L';}
 function fmtTime(t){return new Date(t).toLocaleString();}
 
@@ -2797,7 +2831,19 @@ function renderFindingsDenied(){
 
 function renderFindings(){
   const count=$('findings-count');
-  if(count)count.textContent=threatLoaded?(threatTotal+' active'):'—';
+  // Phase 6B: explicit scope. threatTotal is the filtered backend total for
+  // this query; loaded rows are capped at 100. A capped list is never
+  // labeled TOTAL — only the summary/badge count claims that scope.
+  if(count){
+    if(!threatLoaded)count.textContent='—';
+    else{
+      const loaded=threatFindings.length;
+      const filtered=!!(threatFilters.category||threatFilters.severity);
+      if(filtered)count.textContent='Showing '+loaded+' of '+threatTotal+' matching';
+      else if(threatTotal>loaded)count.textContent='Showing '+loaded+' of '+threatTotal+' active';
+      else count.textContent=threatTotal+' active';
+    }
+  }
   const el=$('findings-list');
   const _op=snapOperatorState();
   if(!threatFindings.length){
@@ -2816,9 +2862,9 @@ function renderFindings(){
     b.className='finding-row sev-'+sevRank(f.severity)+(f.findingId===selectedFindingId?' selected':'');
     b.dataset.fk='fd-'+f.findingId;
     b.setAttribute('role','listitem');
-    b.setAttribute('aria-label','Open '+f.severity+' '+f.category+' finding, risk '+f.riskScore+', confidence '+f.confidenceScore);
+    b.setAttribute('aria-label','Open '+f.severity+' '+f.category+' finding, risk '+f.riskScore+', confidence '+f.confidenceScore+markSuffix(f.findingId));
     b.innerHTML=
-      '<span><b class="'+sevClass(f.severity)+'" style="font-size:10.5px;">'+esc(f.severity)+'</b><br><span class="finding-sub">'+esc(f.category).replace(/_/g,' ')+'</span></span>'+
+      '<span><b class="'+sevClass(f.severity)+'" style="font-size:10.5px;">'+esc(f.severity)+'</b>'+markChip(f.findingId)+'<br><span class="finding-sub">'+esc(f.category).replace(/_/g,' ')+'</span></span>'+
       '<span><span class="finding-main">'+esc(f.reason).replace(/_/g,' ')+'</span><br><span class="finding-sub">'+esc(f.findingId)+' · '+esc(f.status)+'</span></span>'+
       '<span><span class="finding-main">'+esc(f.source||'?')+' → '+esc(f.destination||'?')+'</span><br><span class="finding-sub">seen '+new Date(f.lastSeenAt).toLocaleTimeString()+'</span></span>'+
       '<span class="finding-nums"><span class="risk-score risk-neutral" title="Pipeline risk score (no band applied — severity is shown separately)">'+esc(f.riskScore)+'</span><span class="sub">conf '+esc(f.confidenceScore)+'</span></span>';
@@ -2830,6 +2876,9 @@ function renderFindings(){
 
 async function openFinding(findingId,opts){
   selectedFindingId=findingId;
+  // Phase 6B: opening marks the finding seen (NEW/UPDATED → SEEN) without
+  // touching filters, sort, selection, or return context.
+  delete findingMarks[findingId];
   // P0-2: remember where "back" goes. Explicit contexts (list, investigation,
   // paths) overwrite; a bare refresh call (WS update) preserves the context.
   // Shape: {kind:'investigation',key} | {kind:'paths'} | null.
@@ -3085,11 +3134,21 @@ function onThreatFinding(summary){
   const matches=!threatFilters.category||summary.category===threatFilters.category;
   const matchesSev=!threatFilters.severity||summary.severity===threatFilters.severity;
   if(i>=0){
-    if(matches&&matchesSev)threatFindings[i]=summary;
+    if(matches&&matchesSev){
+      // UPDATED only when displayed data actually changed (duplicate
+      // deliveries compare equal → no mark, no churn). An open finding
+      // shows the latest data already, so its mark clears instead.
+      if(JSON.stringify(threatFindings[i])!==JSON.stringify(summary)){
+        threatFindings[i]=summary;
+        if(summary.findingId===selectedFindingId)delete findingMarks[summary.findingId];
+        else if(!findingMarks[summary.findingId])findingMarks[summary.findingId]='updated';
+      }
+    }
     else threatFindings.splice(i,1);
   }else if(matches&&matchesSev){
     threatFindings=[summary,...threatFindings].slice(0,100);
     threatTotal++;
+    if(!findingMarks[summary.findingId])findingMarks[summary.findingId]='new';
   }
   // Phase 6A: one shared summary fetch (badge + strip); the attention
   // queue is a cheap local rebuild. Heavy tab reloads below are coalesced

@@ -1453,6 +1453,17 @@ button:focus-visible{outline:1px solid var(--sidebar-active-text);outline-offset
             <div id="decision-distribution-legend" class="distribution-legend" hidden></div>
           </div>
 
+          <!-- Threat Posture Strip (P0-1: real summary data only, no scores invented) -->
+          <div class="overview-section">
+            <div class="overview-section-header">
+              <h2 class="overview-section-h">Threat posture</h2>
+              <span style="font-size:9.5px;color:var(--muted);font-family:var(--mono);" id="threat-strip-meta">—</span>
+            </div>
+            <div id="threat-strip" style="padding:12px 16px;">
+              <span class="sub">Loading threat summary…</span>
+            </div>
+          </div>
+
           <!-- Live Decision Stream -->
           <div class="overview-section" style="flex:1;">
             <div class="overview-section-header">
@@ -1602,6 +1613,12 @@ button:focus-visible{outline:1px solid var(--sidebar-active-text);outline-offset
               <option value="HIGH">High</option>
               <option value="MEDIUM">Medium</option>
               <option value="LOW">Low</option>
+            </select>
+            <label class="visually-hidden" for="finding-sort">Sort findings</label>
+            <select class="feed-filter" id="finding-sort" aria-label="Sort findings">
+              <option value="severity">Severity first</option>
+              <option value="risk">Highest risk</option>
+              <option value="recent">Most recent</option>
             </select>
             <span class="section-meta" id="findings-count">—</span>
           </div>
@@ -2159,12 +2176,22 @@ function selectDecision(requestId){
           '<div class="inv-grid-label">HTTP</div><div class="inv-grid-val">'+esc(r.httpStatus||'—')+'</div>'+
           '<div class="inv-grid-label">MFA</div><div class="inv-grid-val">'+(r.mfaSatisfied?'Satisfied (step-up completed)':'Not satisfied')+'</div>'+
         '</div>'+
+        '<div id="event-finding-slot" style="margin-top:8px;"></div>'+
       '</div>'+
 
       '<div class="inv-section" style="background:var(--surface-elevated); border-bottom:none;">'+
         '<div class="assessment-boundary" style="border:none; padding:0;"><strong>Data Boundary:</strong> Risk above is observed pipeline danger. Threat severity and confidence are separate backend assessments and are not shown until the intelligence contract is connected.</div>'+
       '</div>'+
     '</div>';
+  // P0-2: link to the correlated finding only when the existing trace
+  // identifier establishes the relationship — never fabricated.
+  const slot=$('event-finding-slot');
+  if(slot&&r.traceId){
+    const rel=(threatLoaded?threatFindings:[]).find((f)=>f.correlationKey==='trace:'+r.traceId);
+    if(rel)slot.innerHTML='<button class="btn btn-secondary btn-sm" id="event-open-finding" type="button">Open related finding ('+esc(rel.severity)+')</button>';
+    const rb=$('event-open-finding');
+    if(rb)rb.addEventListener('click',()=>inspectFinding(rel.findingId,{returnTo:null}));
+  }
   renderFeed();
 }
 
@@ -2362,6 +2389,9 @@ async function refreshMetrics(){
       }
     }
 
+    /* Overview threat strip (P0-1: summary data already fetched for the badge) */
+    loadThreatStrip();
+
   } catch(e){ console.error(e); }
 }
 
@@ -2503,10 +2533,15 @@ $('runAll').onclick=async()=>{
 let threatFindings=[];
 let threatTotal=0;
 let threatFilters={category:'',severity:''};
+let threatSort='severity';
 let selectedFindingId='';
 let threatLoaded=false;
 let threatDenied=false;
 let invKey='';
+// P0-2: where "back" goes from finding detail. Null = findings list.
+let findingReturn=null;
+// P0-2: finding to offer a return to from the investigation view.
+let invReturnFinding=null;
 
 function loadIntelSub(sub){
   if(sub==='findings')loadThreatFindings();
@@ -2554,9 +2589,84 @@ async function refreshThreatBadge(){
   }
 }
 
+// P0-1: compact operational threat strip on Overview. Reads GET
+// /api/threats/summary only (plus the already-loaded list for scope when
+// present). Counts and ranks existing rows; invents no metrics or scores.
+async function loadThreatStrip(){
+  const el=$('threat-strip');
+  const meta=$('threat-strip-meta');
+  if(!el)return;
+  try{
+    const res=await fetch('/api/threats/summary',{headers:{...keyHeader()}});
+    if(res.status===401){
+      if(meta)meta.textContent='KEY REQUIRED';
+      el.innerHTML='<span class="sub">Threat summary needs the admin key in private mode — enter it in the sidebar.</span>';
+      return;
+    }
+    if(!res.ok)throw new Error('summary unavailable');
+    const body=await res.json();
+    const total=body.totalActiveFindings||0;
+    if(meta)meta.textContent=total?(total+' ACTIVE'):'CLEAR';
+    if(!total){
+      el.innerHTML='<div class="attention-empty"><div class="attention-mark" aria-hidden="true">i</div><div>'+
+        '<p class="attention-empty-title">No active threat findings</p>'+
+        '<p class="attention-empty-body">The correlator holds no active findings. Run the Attack Simulator or wait for live traffic — an empty strip means nothing to triage, not missing data.</p></div></div>';
+      return;
+    }
+    // Severity scope: prefer the loaded list (≤100) when present, else the
+    // summary preview — always labeled, never extrapolated to the full total.
+    const pool=(threatLoaded&&threatFindings.length)?threatFindings:(body.findings||[]);
+    const scope=(threatLoaded&&threatFindings.length)?'loaded findings':'latest preview';
+    const counts={CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0};
+    pool.forEach((f)=>{if(counts[f.severity]!=null)counts[f.severity]++;});
+    const top=pool.slice().sort((a,b)=>(SEV_ORDER[b.severity]||0)-(SEV_ORDER[a.severity]||0)||(b.lastSeenAt||0)-(a.lastSeenAt||0))[0];
+    el.innerHTML=
+      '<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;">'+
+        '<span style="font:700 20px var(--mono);">'+esc(total)+'</span>'+
+        '<span class="sub">active finding'+(total===1?'':'s')+'</span>'+
+        ['CRITICAL','HIGH','MEDIUM','LOW'].map((s)=>'<span class="sub"><b class="'+sevClass(s)+'">'+esc(counts[s])+'</b> '+s.toLowerCase()+'</span>').join('')+
+        '<span class="sub">('+esc(scope)+')</span>'+
+      '</div>'+
+      (top?'<div style="display:flex;gap:10px;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);flex-wrap:wrap;">'+
+        '<span class="sub">Top priority:</span>'+
+        '<b class="'+sevClass(top.severity)+'" style="font-size:11px;">'+esc(top.severity)+'</b>'+
+        '<span style="font-size:12px;">'+esc(top.category).replace(/_/g,' ')+' · '+esc(top.reason).replace(/_/g,' ')+'</span>'+
+        '<span class="sub">risk '+esc(top.riskScore)+' · conf '+esc(top.confidenceScore)+' · '+esc(top.source||'?')+' → '+esc(top.destination||'?')+'</span>'+
+        '<button class="btn btn-secondary btn-sm" id="threat-strip-open" type="button">Open</button>'+
+        '<button class="btn btn-secondary btn-sm" id="threat-strip-all" type="button">View all '+esc(total)+'</button>'+
+      '</div>':'');
+    const openBtn=$('threat-strip-open');
+    if(openBtn&&top)openBtn.addEventListener('click',()=>inspectFinding(top.findingId));
+    const allBtn=$('threat-strip-all');
+    if(allBtn)allBtn.addEventListener('click',()=>{
+      const nav=document.querySelector('.nav-item[data-view="intelligence"][data-sub="findings"]');
+      activateView('intelligence',nav||undefined,'findings');
+    });
+  }catch(e){console.error(e);}
+}
+
+// Navigate to the findings tab and open one finding (P0-2 context entry).
+function inspectFinding(findingId,returnTo){
+  const nav=document.querySelector('.nav-item[data-view="intelligence"][data-sub="findings"]');
+  activateView('intelligence',nav||undefined,'findings');
+  openFinding(findingId,returnTo);
+}
+
 function sevClass(s){return s==='CRITICAL'?'sev-CRITICAL':s==='HIGH'?'sev-HIGH':s==='MEDIUM'?'sev-MEDIUM':'sev-LOW';}
 function sevRank(s){return s==='CRITICAL'?'C':s==='HIGH'?'H':s==='MEDIUM'?'M':'L';}
 function fmtTime(t){return new Date(t).toLocaleString();}
+
+// P0-3: client-side sort over the already-loaded list. Display ordering only:
+// filters stay server-side, selection stays stable, no values are recomputed.
+// (The DTO carries riskScore, not riskLevel, so risk sorts numerically.)
+const SEV_ORDER={CRITICAL:4,HIGH:3,MEDIUM:2,LOW:1};
+function sortedFindings(){
+  const arr=threatFindings.slice();
+  if(threatSort==='risk')arr.sort((a,b)=>(b.riskScore||0)-(a.riskScore||0)||(SEV_ORDER[b.severity]||0)-(SEV_ORDER[a.severity]||0)||(b.lastSeenAt||0)-(a.lastSeenAt||0));
+  else if(threatSort==='recent')arr.sort((a,b)=>(b.lastSeenAt||0)-(a.lastSeenAt||0));
+  else arr.sort((a,b)=>(SEV_ORDER[b.severity]||0)-(SEV_ORDER[a.severity]||0)||(b.lastSeenAt||0)-(a.lastSeenAt||0));
+  return arr;
+}
 
 function renderFindingsDenied(){
   const count=$('findings-count');
@@ -2578,7 +2688,7 @@ function renderFindings(){
   }
   el.innerHTML='<div class="table-container" role="list"><div class="event-stream-header" style="grid-template-columns:110px minmax(150px,1.2fr) minmax(140px,1fr) auto;" aria-hidden="true"><span>SEVERITY</span><span>FINDING</span><span>SOURCE → DEST</span><span style="text-align:right;">RISK · CONF</span></div></div>';
   const wrap=el.firstChild;
-  threatFindings.forEach((f)=>{
+  sortedFindings().forEach((f)=>{
     const b=document.createElement('button');
     b.type='button';
     b.className='finding-row sev-'+sevRank(f.severity)+(f.findingId===selectedFindingId?' selected':'');
@@ -2589,13 +2699,17 @@ function renderFindings(){
       '<span><span class="finding-main">'+esc(f.reason).replace(/_/g,' ')+'</span><br><span class="finding-sub">'+esc(f.findingId)+' · '+esc(f.status)+'</span></span>'+
       '<span><span class="finding-main">'+esc(f.source||'?')+' → '+esc(f.destination||'?')+'</span><br><span class="finding-sub">seen '+new Date(f.lastSeenAt).toLocaleTimeString()+'</span></span>'+
       '<span class="finding-nums"><span class="risk-score '+(f.riskScore>=50?'risk-high':'risk-medium')+'">'+esc(f.riskScore)+'</span><span class="sub">conf '+esc(f.confidenceScore)+'</span></span>';
-    b.addEventListener('click',()=>openFinding(f.findingId));
+    b.addEventListener('click',()=>openFinding(f.findingId,{returnTo:null}));
     wrap.appendChild(b);
   });
 }
 
-async function openFinding(findingId){
+async function openFinding(findingId,opts){
   selectedFindingId=findingId;
+  // P0-2: remember where "back" goes. Explicit contexts (list, investigation,
+  // paths) overwrite; a bare refresh call (WS update) preserves the context.
+  // Shape: {kind:'investigation',key} | {kind:'paths'} | null.
+  if(opts&&opts.returnTo!==undefined)findingReturn=opts.returnTo;
   renderFindings();
   const el=$('finding-detail');
   el.innerHTML='<div class="sub">Loading finding…</div>';
@@ -2619,28 +2733,54 @@ function renderFindingDetail(d){
     '<div style="font-size:11px;color:var(--text-secondary);padding:3px 0;"><code>'+esc(s.type)+'</code> '+esc(s.disposition)+' · '+esc(s.role)+
     (s.riskContribution?' · +'+esc(s.riskContribution.points)+' ('+esc(s.riskContribution.factorCode)+')':'')+'</div>'
   ).join('')||'<span class="sub">No signals stored.</span>';
+  const crumb=findingReturn&&findingReturn.kind==='investigation'
+    ?'Threat Findings › Investigation › Finding'
+    :(findingReturn&&findingReturn.kind==='paths'?'Attack Paths › Finding':'Threat Findings');
+  const backLabel=findingReturn&&findingReturn.kind==='investigation'
+    ?'← Back to investigation'
+    :(findingReturn&&findingReturn.kind==='paths'?'← Back to attack paths':'Back to list');
   $('finding-detail').innerHTML=
     '<div class="inv-workspace" style="border:1px solid var(--border);background:var(--surface);">'+
-      '<div class="inv-header"><div class="inv-id">'+esc(d.category).replace(/_/g,' ')+' · <span class="'+sevClass(d.severity)+'">'+esc(d.severity)+'</span> · '+esc(d.status)+'</div>'+
+      '<div class="inv-header"><div class="sub" style="margin-bottom:4px;">'+esc(crumb)+'</div><div class="inv-id">'+esc(d.category).replace(/_/g,' ')+' · <span class="'+sevClass(d.severity)+'">'+esc(d.severity)+'</span> · '+esc(d.status)+'</div>'+
       '<div class="inv-meta">'+esc(d.findingId)+'<br>Opened '+fmtTime(d.openedAt)+' · Last seen '+fmtTime(d.lastSeenAt)+'</div></div>'+
       '<div class="inv-section"><div class="inv-h">Pipeline risk (authoritative, copied)</div><div class="inv-data">'+
         '<div class="risk-meter" role="img" aria-label="Authoritative risk '+esc(d.riskScore)+' of 100"><div class="risk-meter-track"><span class="risk-meter-fill '+riskCls+'" style="width:'+Math.max(0,Math.min(100,d.riskScore||0))+'%"></span></div><span class="risk-meter-value">'+esc(d.riskScore)+'/100 · model '+esc(d.riskModelVersion)+'</span></div>'+
         '<div class="sub" style="margin-top:4px;">Contributions: '+(d.contributionIds||[]).map((c)=>'<code>'+esc(c)+'</code>').join(' ')+'</div></div></div>'+
       '<div class="inv-section"><div class="inv-h">Severity · Confidence (backend-assessed, distinct from risk)</div><div class="inv-data" style="font-size:12px;">Severity <b class="'+sevClass(d.severity)+'">'+esc(d.severity)+'</b> · Confidence <b>'+esc(conf)+'</b>/100'+
         (d.recurrence?' · Recurrence ×'+esc(d.recurrence.count)+' (first '+fmtTime(d.recurrence.firstSeenAt)+')':'')+'</div></div>'+
-      '<div class="inv-section"><div class="inv-h">Decision context</div><div class="inv-data" style="font-size:12px;">'+badge(d.decision)+' <b>'+esc(d.reason).replace(/_/g,' ')+'</b>'+(d.hardOverride?' · hard override':'')+'<br><span class="sub">Source '+esc(d.source||'?')+' → '+esc(d.destination||'?')+' · Affected: '+esc((d.affectedServices||[]).join(', ')||'—')+'</span></div></div>'+
+      '<div class="inv-section"><div class="inv-h">Decision context</div><div class="inv-data" style="font-size:12px;">'+badge(d.decision)+' <b>'+esc(d.reason).replace(/_/g,' ')+'</b>'+(d.hardOverride?' · hard override':'')+'<br><span class="sub">Source '+esc(d.source||'?')+' → '+esc(d.destination||'?')+' · Affected: '+esc((d.affectedServices||[]).join(', ')||'—')+'</span><div id="finding-event-slot" style="margin-top:8px;"></div></div></div>'+
       (d.assessment?'<div class="inv-section"><div class="inv-h">Assessment</div><div class="inv-data" style="font-size:12px;">'+esc(d.assessment.explanation)+'<br><span class="sub">Category exposure (explanatory): '+esc(d.assessment.categoryExposure.score)+' points</span></div></div>':'')+
       (d.attackPath?'<div class="inv-section"><div class="inv-h">Observed attack path</div><div class="inv-data"><div class="path-chain">'+d.attackPath.services.map((s)=>'<span class="path-hop">'+esc(s)+'</span>').join('<span class="path-arrow">→</span>')+'</div><div class="sub" style="margin-top:4px;">trace '+esc(d.attackPath.traceId||'—')+'</div></div></div>':'')+
       '<div class="inv-section"><div class="inv-h">Signals ('+(d.signals||[]).length+')</div><div class="inv-data">'+sigs+'</div></div>'+
       '<div class="inv-section"><div class="inv-h">Evidence ('+(d.evidence||[]).length+')</div><div class="inv-data">'+ev+'</div></div>'+
       '<div class="inv-section" style="border-bottom:none;display:flex;gap:8px;flex-wrap:wrap;">'+
         (d.correlationKey?'<button class="btn btn-primary btn-sm" id="finding-open-inv" type="button">Open investigation</button>':'')+
-        '<button class="btn btn-secondary btn-sm" id="finding-close" type="button">Back to list</button></div>'+
+        '<button class="btn btn-secondary btn-sm" id="finding-close" type="button">'+esc(backLabel)+'</button></div>'+
     '</div>';
+  // P0-2: link back to the originating pipeline event only when an
+  // evidence requestId matches a loaded live decision — never fabricated.
+  const evSlot=$('finding-event-slot');
+  if(evSlot){
+    const match=(d.evidence||[]).map((e)=>e.requestId).find((id)=>id&&liveDecisions.some((r)=>r.requestId===id));
+    if(match)evSlot.innerHTML='<button class="btn btn-secondary btn-sm" id="finding-open-event" type="button">Open related pipeline event</button>';
+    const eb=$('finding-open-event');
+    if(eb)eb.addEventListener('click',()=>inspectDecision(match));
+  }
   const close=$('finding-close');
-  if(close)close.addEventListener('click',()=>{selectedFindingId='';$('finding-detail').innerHTML='';renderFindings();});
+  if(close)close.addEventListener('click',()=>{
+    const ret=findingReturn;
+    findingReturn=null;
+    if(ret&&ret.kind==='investigation'&&ret.key){
+      openInvestigation(ret.key,{fromFinding:selectedFindingId});
+      activateSubView('intelligence','investigations');syncIntelTabs();
+    }else if(ret&&ret.kind==='paths'){
+      activateSubView('intelligence','paths');syncIntelTabs();
+    }else{
+      selectedFindingId='';$('finding-detail').innerHTML='';renderFindings();
+    }
+  });
   const inv=$('finding-open-inv');
-  if(inv)inv.addEventListener('click',()=>{openInvestigation(d.correlationKey);activateSubView('intelligence','investigations');syncIntelTabs();});
+  if(inv)inv.addEventListener('click',()=>{openInvestigation(d.correlationKey,{fromFinding:d.findingId});activateSubView('intelligence','investigations');syncIntelTabs();});
 }
 
 function syncIntelTabs(){
@@ -2686,16 +2826,39 @@ async function loadInvestigation(key){
     if(res.status===404){el.innerHTML='<div class="intel-contract-notice"><strong>Expired:</strong> no active finding shares this key anymore.</div>';return;}
     const v=await res.json();
     if(meta)meta.textContent=v.findings.length+' finding'+(v.findings.length===1?'':'s');
+    const backToFinding=invReturnFinding
+      ?'<div style="margin-top:8px;"><button class="btn btn-secondary btn-sm" id="inv-back-finding" type="button">← Back to finding</button></div>':'';
     el.innerHTML=
       '<div class="inv-workspace" style="border:1px solid var(--border);background:var(--surface);">'+
-      '<div class="inv-header"><div class="inv-id">Correlation: '+esc(v.correlationKey)+'</div><div class="inv-meta">'+fmtTime(v.firstSeenAt)+' → '+fmtTime(v.lastSeenAt)+' · Affected: '+esc(v.affectedServices.join(', ')||'—')+'</div></div>'+
+      '<div class="inv-header"><div class="sub" style="margin-bottom:4px;">Threat Findings › Investigation</div><div class="inv-id">Correlation: '+esc(v.correlationKey)+'</div><div class="inv-meta">'+fmtTime(v.firstSeenAt)+' → '+fmtTime(v.lastSeenAt)+' · Affected: '+esc(v.affectedServices.join(', ')||'—')+'</div>'+backToFinding+'<div id="inv-path-slot" style="margin-top:8px;"></div></div>'+
       '<div class="inv-section"><div class="inv-h">Grouped findings ('+v.findings.length+')</div><div class="inv-data">'+
-        v.findings.map((f)=>'<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;"><b class="'+sevClass(f.severity)+'">'+esc(f.severity)+'</b> '+esc(f.category).replace(/_/g,' ')+' · risk '+esc(f.riskScore)+' · conf '+esc(f.confidenceScore)+' · '+badge(f.decision)+' '+esc(f.reason).replace(/_/g,' ')+'<br><span class="sub">'+esc(f.findingId)+'</span></div>').join('')+'</div></div>'+
+        v.findings.map((f)=>'<button type="button" data-inv-finding="'+esc(f.findingId)+'" aria-label="Open '+esc(f.severity)+' '+esc(f.category)+' finding detail" style="display:block;width:100%;text-align:left;background:transparent;border:none;border-bottom:1px solid var(--border);border-radius:0;padding:5px 0;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:0;">'+
+          '<b class="'+sevClass(f.severity)+'">'+esc(f.severity)+'</b> '+esc(f.category).replace(/_/g,' ')+' · risk '+esc(f.riskScore)+' · conf '+esc(f.confidenceScore)+' · '+badge(f.decision)+' '+esc(f.reason).replace(/_/g,' ')+'<br><span class="sub">'+esc(f.findingId)+'</span></button>').join('')+'</div></div>'+
       '<div class="inv-section"><div class="inv-h">Decisions in this correlation</div><div class="inv-data">'+
         v.decisions.map((d)=>'<div style="font-size:11.5px;padding:2px 0;">'+badge(d.decision)+' '+esc(d.reason).replace(/_/g,' ')+' <span class="sub">'+fmtTime(d.at)+'</span></div>').join('')+'</div></div>'+
       '<div class="inv-section" style="border-bottom:none;"><div class="inv-h">Evidence references ('+v.evidence.length+')</div><div class="inv-data">'+
         v.evidence.slice(0,30).map((e)=>'<div style="font-size:11px;padding:2px 0;"><code>'+esc(e.evidenceId)+'</code> <span class="sub">'+esc(e.kind)+' · '+esc(e.reliability)+'</span></div>').join('')+
         (v.evidence.length>30?'<div class="sub">+'+(v.evidence.length-30)+' more (bounded response)</div>':'')+'</div></div></div>';
+    // P0-2: grouped findings open detail with investigation return context.
+    el.querySelectorAll('button[data-inv-finding]').forEach((b)=>b.addEventListener('click',()=>{
+      inspectFinding(b.dataset.invFinding,{returnTo:{kind:'investigation',key:v.correlationKey}});
+    }));
+    const backBtn=$('inv-back-finding');
+    if(backBtn)backBtn.addEventListener('click',()=>{
+      const fid=invReturnFinding;
+      invReturnFinding=null;
+      if(fid)inspectFinding(fid,{returnTo:{kind:'investigation',key:v.correlationKey}});
+    });
+    // P0-2: link to attack paths only when the correlator reconstructed one
+    // for this exact correlation key — never fabricated.
+    fetch('/api/threats/attack-paths',{headers:{...keyHeader()}}).then((r)=>r.json()).then((ap)=>{
+      const slot=$('inv-path-slot');
+      if(!slot)return;
+      const hit=(ap.paths||[]).some((p)=>p.correlationKey===v.correlationKey);
+      if(hit)slot.innerHTML='<button class="btn btn-secondary btn-sm" id="inv-open-paths" type="button">View attack paths</button>';
+      const pb=$('inv-open-paths');
+      if(pb)pb.addEventListener('click',()=>{activateSubView('intelligence','paths');syncIntelTabs();});
+    }).catch(()=>{});
   }catch(e){console.error(e);}
 }
 
@@ -2737,14 +2900,17 @@ async function loadAttackPaths(){
       '<div class="inv-section" style="border-bottom:none;"><div class="inv-h">Observed hop chain</div><div class="path-chain">'+p.services.map((s)=>'<span class="path-hop">'+esc(s)+'</span>').join('<span class="path-arrow">→</span>')+'</div>'+
       '<div style="margin-top:8px;"><button class="btn btn-secondary btn-sm" data-finding="'+esc(p.findingId)+'" data-ckey="'+esc(p.correlationKey||'')+'" type="button">Open finding</button></div></div></div>').join('');
     el.querySelectorAll('button[data-finding]').forEach((b)=>b.addEventListener('click',()=>{
-      if(b.dataset.ckey){openInvestigation(b.dataset.ckey);activateSubView('intelligence','investigations');syncIntelTabs();}
-      else{openFinding(b.dataset.finding);activateSubView('intelligence','findings');syncIntelTabs();}
+      if(b.dataset.ckey){openInvestigation(b.dataset.ckey,{fromFinding:null});activateSubView('intelligence','investigations');syncIntelTabs();}
+      else{openFinding(b.dataset.finding,{returnTo:{kind:'paths'}});activateSubView('intelligence','findings');syncIntelTabs();}
     }));
   }catch(e){console.error(e);}
 }
 
-function openInvestigation(key){
+function openInvestigation(key,opts){
   if(key)invKey=key;
+  // Remember the originating finding so the investigation can offer a way
+  // back. Explicit navigation (key selector, tabs) clears it via null.
+  if(opts&&opts.fromFinding!==undefined)invReturnFinding=opts.fromFinding;
   loadInvestigation(invKey);
 }
 
@@ -2763,6 +2929,7 @@ function onThreatFinding(summary){
     threatTotal++;
   }
   refreshThreatBadge();
+  loadThreatStrip();
   const panel=document.querySelector('[data-view-panel="intelligence"]');
   if(!panel||!panel.classList.contains('active'))return;
   const sub=activeSubViews.intelligence;
@@ -2818,7 +2985,8 @@ $('decision-filter').addEventListener('change',renderFeed);
 $('decision-search').addEventListener('input',renderFeed);
 $('finding-category').addEventListener('change',()=>{threatFilters.category=$('finding-category').value;loadThreatFindings();});
 $('finding-severity').addEventListener('change',()=>{threatFilters.severity=$('finding-severity').value;loadThreatFindings();});
-$('inv-key').addEventListener('change',()=>{openInvestigation($('inv-key').value);});
+$('finding-sort').addEventListener('change',()=>{threatSort=$('finding-sort').value||'severity';renderFindings();});
+$('inv-key').addEventListener('change',()=>{openInvestigation($('inv-key').value,{fromFinding:null});});
 loadStatic();
 refreshMetrics();
 connect();

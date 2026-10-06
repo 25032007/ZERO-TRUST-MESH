@@ -16,6 +16,7 @@
  * denied-edge map is capped.
  */
 import { capMap } from '../util/slidingCounter.js';
+import { pathMatchesPrefix } from './paths.js';
 
 export interface PolicyUsage {
   hits: number;
@@ -59,7 +60,7 @@ export class UsageTracker {
     // Attribute to the MOST SPECIFIC (longest) matching prefix.
     let prefix = '*';
     if (allowPaths && allowPaths.length > 0) {
-      const matches = allowPaths.filter((p) => path.startsWith(p));
+      const matches = allowPaths.filter((p) => pathMatchesPrefix(path, p));
       prefix = matches.length > 0 ? matches.reduce((a, b) => (b.length > a.length ? b : a)) : '*';
     }
     const key = `${method.toUpperCase()} ${prefix}`;

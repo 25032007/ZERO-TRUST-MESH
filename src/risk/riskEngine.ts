@@ -15,6 +15,7 @@
  * counter and the "pairs seen" set, so call it exactly once per request.
  */
 import type { MeshConfig } from '../config.js';
+import { pathMatchesPrefix } from '../policy/paths.js';
 import type { RiskFactor, RiskLevel } from '../types.js';
 import type { AnomalyResult } from './anomaly.js';
 import type { LateralResult } from '../detection/lateralMovement.js';
@@ -96,7 +97,7 @@ export class RiskEngine {
 
     // 2. Is the target something we consider sensitive (database, /admin …)?
     const sensitiveService = this.cfg.sensitiveServices.includes(input.destination);
-    const sensitivePath = this.cfg.sensitivePathPrefixes.some((p) => input.path.startsWith(p));
+    const sensitivePath = this.cfg.sensitivePathPrefixes.some((p) => pathMatchesPrefix(input.path, p));
     if (sensitiveService || sensitivePath) {
       factors.push({
         code: 'SENSITIVE_ENDPOINT',

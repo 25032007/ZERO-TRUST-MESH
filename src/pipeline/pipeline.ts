@@ -37,6 +37,7 @@ import type { RateLimiter } from '../security/rateLimiter.js';
 import type { TokenVerifier } from '../token/tokenVerifier.js';
 import type { ThreatIntelligence } from '../threat/threatIntelligence.js';
 import type { ThreatObservationContext } from '../threat/normalizer.js';
+import { isSafePath } from '../policy/paths.js';
 import { toSummary as toThreatSummary } from '../threat/presenter.js';
 import type { Decision, PipelineInput, PipelineResult, RiskFactor, StageTrace } from '../types.js';
 
@@ -142,6 +143,15 @@ export class SecurityPipeline {
       stages.push({ stage, outcome: 'fail', detail });
       return finish({ decision: 'BLOCK', httpStatus, reason, riskScore: cfg.hardFailSeverity[reason] ?? 70, source });
     };
+
+    // ── 0. PATH SAFETY (before anything else, including rate limiting) ────
+    // The policy engine authorizes a path string while the HTTP client
+    // normalizes dot-segments/encoding when forwarding. Any path whose meaning
+    // could change under that normalization is rejected here, so the exact
+    // string that passes authorization is also the exact string forwarded.
+    if (!isSafePath(input.path)) {
+      return hardFail('path_validation', 'INVALID_PATH', 400, `Unsafe request path rejected before authorization`);
+    }
 
     // ── 1. RATE LIMIT (per IP, before we spend CPU on crypto) ──────────────
     if (!this.d.ipLimiter.hit(`ip:${input.ip}`)) {

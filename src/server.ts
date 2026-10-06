@@ -111,8 +111,12 @@ export async function createApp(config: MeshConfig, meshOptions: MeshOptions = {
       }
 
       // ALLOW / MONITOR → forward to the downstream service over real HTTP.
+      // Forward result.path (the exact string the pipeline validated and
+      // authorized), never a re-derived representation: with traversal and
+      // encoded separators rejected up front, no URL normalization can change
+      // its meaning between authorization and forwarding.
       const query = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
-      const target = `${selfBase}/downstream/${result.destination}${req.path}${query}`;
+      const target = `${selfBase}/downstream/${result.destination}${result.path}${query}`;
       const hasBody = !['GET', 'HEAD'].includes(req.method) && req.body !== undefined;
       try {
         const upstream = await fetch(target, {

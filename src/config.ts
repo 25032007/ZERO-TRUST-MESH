@@ -241,6 +241,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): MeshConfig {
       IDENTITY_MISMATCH: 90,
       SERVICE_QUARANTINED: 100,
       MISSING_DESTINATION: 40,
+      INVALID_PATH: 40,
       NO_POLICY: 70,
       METHOD_NOT_ALLOWED: 65,
       PATH_DENIED: 75,

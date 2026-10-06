@@ -46,6 +46,7 @@ const HARD_MAPPINGS: Record<string, Mapping> = {
   EXPLICIT_DENY: { type: 'POLICY_DENIED', role: 'threat_signal', primaryCategory: 'AUTHORIZATION_POLICY_VIOLATION', kind: 'policy', reliability: 'deterministic' },
   PATH_DENIED: { type: 'POLICY_DENIED', role: 'threat_signal', primaryCategory: 'AUTHORIZATION_POLICY_VIOLATION', kind: 'policy', reliability: 'deterministic' },
   METHOD_NOT_ALLOWED: { type: 'METHOD_NOT_ALLOWED', role: 'threat_signal', primaryCategory: 'AUTHORIZATION_POLICY_VIOLATION', kind: 'policy', reliability: 'deterministic' },
+  INVALID_PATH: { type: 'INVALID_PATH', role: 'threat_signal', primaryCategory: 'AUTHORIZATION_POLICY_VIOLATION', kind: 'policy', reliability: 'deterministic' },
   PATH_NOT_ALLOWED: { type: 'PATH_NOT_ALLOWED', role: 'threat_signal', primaryCategory: 'AUTHORIZATION_POLICY_VIOLATION', kind: 'policy', reliability: 'deterministic' },
   OUTSIDE_TIME_WINDOW: { type: 'TIME_WINDOW_DENIED', role: 'threat_signal', primaryCategory: 'AUTHORIZATION_POLICY_VIOLATION', kind: 'policy', reliability: 'deterministic' },
   SERVICE_QUARANTINED: { type: 'QUARANTINE', role: 'decision_context', kind: 'quarantine', reliability: 'deterministic' },

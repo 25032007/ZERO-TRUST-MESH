@@ -18,6 +18,8 @@
  *            instead of blocking. This is how you roll out a new rule safely.
  */
 
+import { pathMatchesPrefix } from './paths.js';
+
 export type PolicyEffect = 'allow' | 'deny';
 export type PolicyMode = 'enforce' | 'dry-run';
 
@@ -151,7 +153,7 @@ export class PolicyEngine {
       if (!p.methods.includes(upperMethod)) continue;
 
       const inWindow = this.inTimeWindow(p);
-      const pathMatches = !p.allowPaths || p.allowPaths.length === 0 || p.allowPaths.some((prefix) => path.startsWith(prefix));
+      const pathMatches = !p.allowPaths || p.allowPaths.length === 0 || p.allowPaths.some((prefix) => pathMatchesPrefix(path, prefix));
 
       if (p.effect === 'deny') {
         // An explicit deny applies only when everything it describes matches.
@@ -159,7 +161,7 @@ export class PolicyEngine {
         continue;
       }
 
-      if (p.denyPaths?.some((prefix) => path.startsWith(prefix))) {
+      if (p.denyPaths?.some((prefix) => pathMatchesPrefix(path, prefix))) {
         best = { allowed: false, reason: 'PATH_DENIED', policyId: p.id, dryRun: isDry(p) };
         continue;
       }

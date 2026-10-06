@@ -3,6 +3,7 @@
  * These prove the pieces work TOGETHER, including forwarding and admin auth.
  */
 import assert from 'node:assert/strict';
+import { request as httpRequest } from 'node:http';
 import { after, before, test } from 'node:test';
 import { loadConfig } from '../src/config.js';
 import { ServiceClient } from '../src/identity/serviceClient.js';
@@ -106,6 +107,54 @@ test('after all that traffic the audit chain is still intact and metrics add up'
   assert.equal(verify.valid, true);
   const m = (await (await fetch(`${base}/api/metrics`)).json()) as { total: number; byDecision: Record<string, number> };
   assert.equal(Object.values(m.byDecision).reduce((a, b) => a + b, 0), m.total);
+});
+
+/**
+ * Send a byte-exact raw path. `fetch`/undici normalize dot-segments
+ * client-side, which would hide the attack string before it reaches the
+ * server — a raw socket proves the server-side boundary instead.
+ */
+const rawProxy = (to: string, rawPath: string, token: string): Promise<{ status: number; headers: Record<string, string | undefined>; body: string }> =>
+  new Promise((resolve, reject) => {
+    const url = new URL(base);
+    const req = httpRequest(
+      { host: url.hostname, port: Number(url.port), path: `/api/proxy${rawPath}`, method: 'GET', headers: { authorization: `Bearer ${token}`, 'x-destination-service': to } },
+      (res) => {
+        let body = '';
+        res.on('data', (c) => void (body += c));
+        res.on('end', () => resolve({ status: res.statusCode ?? 0, headers: { 'x-zt-decision': res.headers['x-zt-decision'] as string, 'x-zt-reason': res.headers['x-zt-reason'] as string }, body }));
+      },
+    );
+    req.on('error', reject);
+    req.end();
+  });
+
+test('traversal cannot escape the authorized prefix: /orders/../../database-service/database/rows is blocked', async () => {
+  const token = await app.clients.get('frontend-service')!.signToken();
+  const r = await rawProxy('database-service', '/orders/../../database-service/database/rows', token);
+  assert.equal(r.status, 400);
+  assert.equal(r.headers['x-zt-decision'], 'BLOCK');
+  assert.equal(r.headers['x-zt-reason'], 'INVALID_PATH');
+  // The downstream database was never reached: no rows leak through a block.
+  assert.ok(!r.body.includes('sensitive row'), 'downstream database content must not leak');
+});
+
+test('dot-segment deny-path bypass fails: /database/./admin/users stays blocked', async () => {
+  const token = await app.clients.get('payments-service')!.signToken();
+  const r = await rawProxy('database-service', '/database/./admin/users', token);
+  assert.equal(r.status, 400);
+  assert.equal(r.headers['x-zt-decision'], 'BLOCK');
+  assert.equal(r.headers['x-zt-reason'], 'INVALID_PATH');
+  assert.ok(!r.body.includes('sensitive row'), 'downstream database content must not leak');
+});
+
+test('encoded traversal and separators are rejected over HTTP', async () => {
+  const token = await app.clients.get('payments-service')!.signToken();
+  for (const p of ['/%2e%2e/database/admin', '/database/%2e%2e/admin/x', '/orders%2flist']) {
+    const r = await rawProxy('database-service', p, token);
+    assert.equal(r.status, 400, p);
+    assert.equal(r.headers['x-zt-reason'], 'INVALID_PATH', p);
+  }
 });
 
 test('private dashboard mode hides data without the admin key and hides internals from attackers', async () => {

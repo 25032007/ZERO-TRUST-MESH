@@ -186,7 +186,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): MeshConfig {
       burstWarn: 10,
       burstHigh: 20,
       rateSpikeElevated: 10,
-      rateSpikeHigh: 20,
+      // A high-confidence rate spike (z >= zHigh on a warm baseline) is a
+      // decision by itself: 30 reaches MONITOR so the flood is visible to an
+      // analyst instead of scoring 20 and vanishing into ALLOW. Measured on
+      // the synthetic eval harness (recall 0.002 -> 0.142, batch-edge flags
+      // 2/1543); a lower value keeps floods invisible, a higher one is
+      // indistinguishable from it on established edges.
+      rateSpikeHigh: 30,
       perRecentAuthFailure: 5,
       maxAuthFailurePoints: 25,
       lateralMovement: 50,

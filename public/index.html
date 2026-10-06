@@ -1709,9 +1709,11 @@ button:focus-visible{outline:1px solid var(--sidebar-active-text);outline-offset
       <div class="sub-view" id="mesh-anomalies">
         <div class="intel-empty-state">
           <h3 class="intel-state-title">Behavioral anomaly detection</h3>
-          <p class="intel-state-body">Per-pair EWMA baselines detect anomalous request volume, payload size, and call-depth deviations. The backend risk engine calculates and records these as named factors on each decision event. Anomaly factor codes (e.g., <code>BASELINE_SPIKE</code>, <code>PAYLOAD_ANOMALY</code>) are visible in the Live Operations investigation panel when present.</p>
+          <p class="intel-state-body">Per-pair EWMA baselines detect anomalous request volume, payload size, and call-depth deviations. The backend risk engine calculates and records these as named factors on each decision event. Anomaly factor codes (e.g., <code>RATE_SPIKE</code>, <code>PAYLOAD_ANOMALY</code>, <code>LATERAL_MOVEMENT</code>) are visible in the Live Operations investigation panel when present.</p>
           <div class="intel-contract-notice"><strong>Authoritative source:</strong> Anomaly factors are recorded by the backend risk engine. This view does not compute anomalies independently.</div>
         </div>
+        <!-- Live factor records below are quoted verbatim from decision events -->
+        <div id="mesh-anomalies-live"></div>
       </div>
 
     </section>
@@ -2192,6 +2194,55 @@ function renderMeshActivityLive(){
   restoreOperatorState(_op);
 }
 
+// Phase 6D: live anomaly-factor feed. Strictly a presentation of the
+// authoritative factor ledger already carried on decision events — no
+// scoring, no classification, no thresholds. Each row quotes one backend
+// factor verbatim and links to the decision event it came from.
+function renderAnomalyFeed(){
+  const el=$('mesh-anomalies-live');
+  if(!el)return;
+  const _op=snapOperatorState();
+  const seen=new Set();
+  const rows=[];
+  for(const r of liveDecisions){
+    for(const f of (Array.isArray(r.factors)?r.factors:[])){
+      const key=r.requestId+'|'+f.code+'|'+f.points;
+      if(seen.has(key))continue;
+      seen.add(key);
+      rows.push({r,f});
+      if(rows.length>=30)break;
+    }
+    if(rows.length>=30)break;
+  }
+  if(!rows.length){
+    el.innerHTML=liveDecisions.length
+      ?'<div class="intel-contract-notice"><strong>Note:</strong> session decisions so far carry no risk factors — anomalous behavior will surface here as named backend factors when observed.</div>'
+      :'';
+    restoreOperatorState(_op);
+    return;
+  }
+  el.innerHTML=
+    '<div style="margin-top:20px;"><div class="section-header"><h2 class="section-h">Observed risk factors (live session)</h2><span class="section-meta">'+rows.length+' factor records</span></div>'+
+    '<div class="table-container"><table>'+
+    '<thead><tr><th>Time</th><th>Factor</th><th style="width:64px;">Points</th><th>Detail (backend-recorded)</th><th>Source → Dest</th><th>Decision</th></tr></thead>'+
+    '<tbody>'+
+    rows.map(({r,f})=>
+      '<tr>'+
+        '<td style="white-space:nowrap;font-size:11px;color:var(--muted);">'+new Date(r.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})+'</td>'+
+        '<td><code>'+esc(f.code)+'</code></td>'+
+        '<td style="font-weight:700;">+'+esc(f.points)+'</td>'+
+        '<td style="font-size:11.5px;color:var(--text-secondary);">'+esc(f.detail)+'</td>'+
+        '<td style="font-family:var(--mono);font-size:11px;white-space:nowrap;">'+esc(r.source||'?')+' → '+esc(r.destination||'?')+'</td>'+
+        '<td><button class="btn btn-secondary btn-sm" data-anomaly-event="'+esc(r.requestId)+'" type="button">'+esc(r.decision).replace(/_/g,' ')+'</button></td>'+
+      '</tr>'
+    ).join('')+
+    '</tbody></table></div><div class="intel-contract-notice"><strong>Scope:</strong> factors observed in this browser session only (newest first, latest 30). Points and wording are quoted from the backend risk ledger.</div></div>';
+  el.querySelectorAll('button[data-anomaly-event]').forEach((b)=>b.addEventListener('click',()=>{
+    inspectDecision(b.dataset.anomalyEvent);
+  }));
+  restoreOperatorState(_op);
+}
+
 function selectDecision(requestId){
   selectedDecisionId=requestId;
   const r=liveDecisions.find((item)=>item.requestId===requestId);
@@ -2272,6 +2323,7 @@ function addDecision(r){
   renderFeed();
   renderOverviewTimeline();
   renderMeshActivityLive();
+  renderAnomalyFeed();
 }
 
 /* =====================================================

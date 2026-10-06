@@ -14,7 +14,12 @@ let app: App;
 let base: string;
 
 before(async () => {
-  app = await createApp(loadConfig({ ADMIN_API_KEY: 'e2e-admin-key', PORT: '0' }));
+  // WHY: risk scoring adds an OFF_HOURS factor outside 6-22 UTC, which would
+  // push the step-up probe (75 pts) to exactly the 80-pt BLOCK threshold at
+  // night and quarantine payments-service, cascading into later scenarios.
+  // Pinning the window to 0-24 keeps every hour in business hours for this
+  // app only; production defaults (6-22, see config.ts/.env.example) are untouched.
+  app = await createApp(loadConfig({ ADMIN_API_KEY: 'e2e-admin-key', PORT: '0', BUSINESS_HOURS_START: '0', BUSINESS_HOURS_END: '24' }));
   base = `http://127.0.0.1:${await app.listen(0)}`;
 });
 after(async () => app.close());

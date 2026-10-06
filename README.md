@@ -1,253 +1,383 @@
 # Zero-Trust Mesh
 
-**An explainable, real-time zero-trust enforcement and threat-intelligence platform for service-to-service communication.**
+> An explainable, real-time zero-trust enforcement and threat-intelligence platform for service-to-service communication.
 
-Every request between services is authenticated by workload identity, authorized against default-deny policy-as-code, scored with an explainable risk model, recorded in a tamper-evident audit log — and then normalized into threat signals that are correlated into findings, investigations, and reconstructed attack paths for a live security-operations console. All enforcement is policy-driven and deterministic; behavioral analysis uses statistical techniques (per-pair EWMA baselines, z-scores). There is no ML/AI detection in this system.
+Every request between services carries a cryptographic workload identity. The mesh verifies that identity, authorizes the call against default-deny policy, scores how suspicious it looks, and records the verdict in a tamper-evident log. Finalized verdicts then flow into an additive intelligence layer that normalizes them into signals, correlates them into findings, and serves them to a live security-operations console. Enforcement stays authoritative; intelligence stays analytical — the two never trade jobs.
 
-## Overview
+## Why this project exists
 
-In a microservice environment the network perimeter is meaningless: services call each other constantly, and a compromised service is already "inside." Perimeter security cannot answer the questions that matter — *which workload is calling, is it allowed to, and does this particular request look wrong?*
+Authentication alone does not secure service-to-service traffic. A valid token says *who is calling*, but not whether the call is allowed, normal, or part of an attack chain. This project closes that gap:
 
-Zero-Trust Mesh answers them on every request by applying zero-trust principles directly at the service-to-service layer:
+- workload identity must be **verified**, not trusted from a header;
+- authorization must be **explicit** — unlisted service pairs are blocked;
+- abnormal behavior (payload shape, request-rate spikes, odd hours) must be **detected** per service pair, not against global magic numbers;
+- lateral movement across services must be **constrained** inside a single trace;
+- every security decision should be **explainable** down to named, point-valued factors;
+- related security events should be **correlated into investigations**, not left as isolated log lines.
 
-- **Never trust, always verify** — every request carries an Ed25519-signed JWT proving workload identity; the proxy holds public keys only.
-- **Explicit authorization** — default-deny JSON policies decide each `source → destination` edge; anything unlisted is blocked.
-- **Continuous monitoring** — payload shape, per-pair request rates, and multi-hop traversal are observed on every request and folded into an explainable risk score.
-- **Assume breach** — lateral-movement detection and quarantine isolate a pivoting service within the same request path.
-- **From signals to intelligence** — each completed pipeline verdict is normalized into typed signals and evidence, correlated across requests/traces/edges, and assessed into categorized threat findings with severity and confidence — an additive analytical layer that never overrides enforcement.
+## What the system does
 
-## Key Capabilities
+### Zero-Trust Enforcement
 
-All items below are implemented and covered by tests (`npm test`: 173 passing, 23 test files):
+- Ed25519 JWT workload verification with pinned algorithm, audience, lifetime, and single-use token ids
+- Anti-spoofing: the caller header is cross-checked against the cryptographic identity
+- Token replay protection (checked after signature verification) and revocation (per-key and per-token)
+- Default-deny policy enforcement with priority, allow/deny effects, method/path rules, time windows, dry-run, hot reload, and declared workflows
+- Service-aware rate limiting (per-IP quota before crypto, per-service quota after authentication)
+- Quarantine enforcement with automatic release
+- Payload anomaly detection (size/depth limits plus per-pair statistical checks)
+- Lateral-movement detection (3+ distinct hops in 1 s within one trace → block and quarantine)
+- Explainable risk scoring: `min(100, Σ factor points)`, every point attributed
 
-- **Workload identity** — Ed25519 JWTs, algorithm pinned to EdDSA (never read from the token), audience and lifetime enforced.
-- **Anti-spoofing** — the attacker-controlled `X-Service-ID` header is cross-checked against the cryptographic identity (`IDENTITY_MISMATCH`).
-- **Replay protection** — single-use `jti` enforced server-side; the replay check runs *after* signature verification so attackers cannot burn a victim's token id.
-- **Revocation** — per-key revocation (immediate, no grace) and per-token (`jti`) revocation over the admin API.
-- **Default-deny authorization** — priority-ordered JSON policies with allow/deny effects, method/path allow- and deny-lists, time windows, and declared workflows.
-- **Policy-as-code operations** — strict schema validation (typos are errors), atomic hot reload, invalid edits rejected with the old policies kept, fail-fast startup, per-policy and global dry-run.
-- **Rate limiting** — per-IP quota (5× service quota, checked before crypto) plus per-authenticated-service quota.
-- **Payload anomaly detection** — size/depth limits plus per-pair statistical (z-score) size checks that need history before they trust themselves.
-- **Behavioral baselines** — per-service-pair rolling EWMA rate baselines with warm-up, winsorised learning, and silence-aware decay (baseline mode); fixed thresholds retained for comparison.
-- **Lateral-movement detection** — ≥3 distinct service hops inside 1 s within one trace → block + quarantine; declared workflows exempt.
-- **Quarantine** — automatic isolation on lateral movement or critical risk (60 s default, auto-release), with admin release.
-- **Step-up authentication** — high-risk requests get `STEP_UP_AUTH` (401 + `WWW-Authenticate` challenge) and must retry with a single-use TOTP code.
-- **Explainable risk scoring** — `score = min(100, Σ factor points)`; every point carries a named factor code and human-readable detail; hard failures get fixed severities instead.
-- **Threat taxonomy, correlation, assessment** — 8 categories, bounded in-memory correlation with recurrence tracking and contribution deduplication, plus separate severity (category/recurrence rules) and confidence (4 × 25-point criteria) models.
-- **Attack-path reconstruction** — trace-correlated findings chain into ordered service paths from observed evidence only.
-- **Least-privilege recommender** — advisory-only; proposes narrowing/removal plus a trial policy document for dry-run, never auto-applies.
-- **Tamper-evident audit log** — hash-chained, ring-buffered, with a verify endpoint.
-- **Real-time operations** — REST dashboard APIs, one WebSocket carrying versioned `decision` and `threat.finding.v1` events, metrics snapshots.
-- **SOC console** — 14-view frontend (overview through attack simulator) that renders authoritative backend data and computes no verdicts itself.
+### Threat Intelligence
+
+- Signal normalization from finalized pipeline verdicts into typed, role-tagged signals
+- Primitive-only evidence generation (no tokens, secrets, or raw payloads by construction)
+- Bounded in-memory correlation into findings with recurrence tracking and contribution deduplication
+- Category exposure scoring (explanatory — never fed back into enforcement risk)
+- Severity assessed from category/recurrence rules; confidence from four fixed 25-point criteria
+- Investigations grouped by correlation key; attack paths reconstructed from observed trace evidence
+- Deterministic, advisory recommendations with human approval required
+
+### Security Operations
+
+- REST APIs for metrics, audit, policies, quarantine, services, keys, simulator, and threat intelligence
+- A single WebSocket streaming live decisions plus versioned `threat.finding.v1` events
+- Live operational visibility: decision stream, posture, attention queue, service activity
+- Tamper-evident audit trail with one-click chain verification
+- Investigation views, threat findings, service map, and a 13-scenario attack simulator firing real forged traffic
 
 ## Architecture
 
+Three planes. Enforcement decides; intelligence analyzes; operations presents.
+
+### Enforcement Plane
+
+```text
+Client Request
+      │
+      ▼
+IP Rate Limit
+      │
+      ▼
+Workload Authentication
+      │
+      ├── JWT verification
+      ├── anti-spoofing
+      └── service quota
+      │
+      ▼
+Quarantine Check
+      │
+      ▼
+Default-Deny Authorization
+      │
+      ▼
+Payload / Behavioral Analysis
+      │
+      ▼
+Lateral Movement Detection
+      │
+      ▼
+Risk Engine
+      │
+      ▼
+Decision
+ALLOW / MONITOR / STEP_UP_AUTH / BLOCK
 ```
-                        ┌─ SecurityPipeline (authoritative enforcement) ────────┐
-                        │                                                        │
-Client request ──► rate_limit (IP) ──► authentication (+anti-spoof, svc quota) ─►│
-                        │ quarantine ──► authorization (default-deny policy) ────►│
-                        │ payload_anomaly ──► lateral_movement ──► risk_scoring ─►│
-                        │ decision: ALLOW / MONITOR / STEP_UP_AUTH / BLOCK ─────►│
-                        └──────────────┬───────────────────────┬─────────────────┘
-                                       │ audit + metrics       │ decision event (WS)
-                                       ▼                       ▼
-                                  AuditLog (hash chain)   EventBus ──► /ws ──► SOC console
-                                  MetricsCollector             │
-                                                               ▼ threat fan-out (additive)
-                        ┌─ ThreatIntelligence (analytical, never enforces) ──────┐
-                        │ normalize verdict ──► signals + evidence ──► correlate │
-                        │ ──► assess (exposure/confidence/severity) ──► findings │
-                        └──────────────┬───────────────────────┬─────────────────┘
-                                       │ read-only REST        │ threat.finding.v1 (WS)
-                                       ▼                       ▼
-                                  SOC console: findings, investigations,
-                                  categories, attack paths
+
+Hard security failures (bad signature, replay, no policy, quarantine hit) terminate the request at the failing stage with a fixed severity — later stages do not run for that request. Surviving requests accumulate soft-signal factors into a 0–100 score that maps to a verdict.
+
+### Intelligence Plane
+
+```text
+Finalized Pipeline Result
+          │
+          ▼
+Signal Normalization
+          │
+          ▼
+Evidence
+          │
+          ▼
+Correlation
+          │
+          ▼
+Threat Assessment
+ ┌────────┼────────┐
+ ▼        ▼        ▼
+Risk   Severity  Confidence
+          │
+          ▼
+Threat Findings
+          │
+     ┌────┼─────┐
+     ▼    ▼     ▼
+Investigations
+Attack Paths
+Recommendations
 ```
 
-**Authoritative components:** `SecurityPipeline` (verdicts), `RiskEngine` (scores), `PolicyEngine` (authorization), `ThreatCorrelator` (findings), `AuditLog` (record). The frontend, the recommender, and the threat layer are consumers — none of them can change a verdict. Threat Intelligence observes *finalized* results inside a `try/catch` that cannot interrupt the proxy.
+> Threat Intelligence is analytical and additive. It does not override the finalized enforcement verdict.
 
-## Security Pipeline
+Risk here is the pipeline score, copied — not recomputed. Severity and confidence are assessed from stored proof under fixed rules. Category exposure is explanatory context, never an enforcement input.
 
-Each request to `/api/proxy/*` passes eight stages in order (cheap checks first, identity before anything that trusts a name):
+### Operations Plane
 
-1. **Rate limit (IP)** — socket-address quota; protects the proxy before crypto is spent.
-2. **Authentication** — Ed25519 verification, expiry, audience, lifetime cap, single-use `jti`; then anti-spoofing (`X-Service-ID` vs. token identity); then the per-service quota. Failures are recorded per IP (never per claimed service, so victims cannot be framed).
-3. **Quarantine** — isolated services are rejected immediately.
-4. **Authorization** — default-deny policy evaluation; denials are recorded for the recommender; dry-run violations are flagged and let through for observation.
-5. **Payload anomaly** — size/depth/statistical checks, learned per service pair.
-6. **Lateral movement** — trace observation; detection quarantines the pivot service.
-7. **Risk scoring** — explainable sum of soft-signal factors (0–100).
-8. **Decision** — lateral movement overrides to `BLOCK`; otherwise the score maps to a verdict.
+```text
+Security Events
+      │
+      ├── REST API
+      └── WebSocket
+             │
+             ▼
+       SOC Console
+             │
+   ┌─────────┼─────────┐
+   ▼         ▼         ▼
+Findings  Investigations  Attack Paths
+```
 
-Then: audit record appended, metrics recorded, decision event published, threat observation recorded. **Hard failures** (bad signature, replay, no policy, …) reject immediately with a fixed severity from `src/config.ts` (e.g. `INVALID_SIGNATURE: 95`, `TOKEN_REPLAY: 90`, `NO_POLICY: 70`) and never reach scoring.
+One socket, two event types (`decision`, `threat.finding.v1`). The console renders authoritative backend state and computes no verdicts, scores, or correlations itself.
+
+## Security Decision Flow
+
+1. Identify the workload from its signed token — never from its self-declared header.
+2. Authenticate the request (signature, expiry, audience, lifetime, single-use id).
+3. Apply rate limits (IP, then service) and quarantine controls.
+4. Evaluate default-deny authorization policy.
+5. Analyze payload and behavioral signals against per-pair baselines.
+6. Detect lateral movement within the request trace.
+7. Calculate explainable pipeline risk from the triggered factor ledger.
+8. Produce an enforcement decision.
+9. Record audit, metrics, and live events.
+10. Fan the finalized result into the additive threat-intelligence layer.
+
+Three jobs, three owners:
+
+| Layer | Role | Owner |
+|---|---|---|
+| **Enforcement** | Authoritative: verdicts, scores, blocks, quarantine | `SecurityPipeline`, `RiskEngine`, `PolicyEngine` |
+| **Threat Intelligence** | Analytical: signals, findings, severity, confidence | `ThreatIntelligence`, `ThreatCorrelator` |
+| **SOC Console** | Presentation and investigation | `public/index.html` (no security logic) |
 
 ## Risk Model
 
+```text
+finalRisk = min(100, sum(unique risk-factor contributions))
 ```
-score = min(100, Σ points of every triggered factor)
-```
 
-Default factor points (`src/config.ts`): new service pair 10, sensitive endpoint 10, off-hours 5, elevated/abnormal frequency 10/20 (fixed mode), rate-spike elevated/high 10/20 (baseline mode), per recent auth failure 5 (max 25), lateral movement 50; payload anomaly up to 50 (size 25, depth 25, z-score 15). Default decision thresholds: **≥30 MONITOR** (forwarded, flagged), **≥60 STEP_UP_AUTH** (held, TOTP required), **≥80 BLOCK + quarantine**. Risk levels: `LOW <30`, `MEDIUM 30+`, `HIGH 60+`, `CRITICAL 80+`. All thresholds and points are environment-overridable (see `.env.example`).
+The factor ledger is authoritative: each contribution has a stable id, so recurrence can never double-count. Category exposure is computed from the same ledger but kept separate — category scores are **not** summed into enforcement risk.
 
-Risk, severity, and confidence are deliberately separate models:
+| Concept | Meaning |
+|---|---|
+| Risk | Danger associated with the observed request/incident |
+| Severity | Impact if the threat is real |
+| Confidence | Strength of supporting evidence |
 
-| Concept | Meaning | Decided by |
-|---|---|---|
-| **Risk** (0–100) | Assessed danger of the observed request/behavior | `RiskEngine` (or fixed severity for hard failures); drives enforcement |
-| **Severity** (`LOW…CRITICAL`) | Inherent impact of a threat *finding* | Category/recurrence rules (e.g. lateral movement is always `CRITICAL`, replay is `HIGH`) — never a proxy for the score |
-| **Confidence** (0–100) | Strength/completeness of supporting evidence | Four fixed 25-point criteria: detector validity, evidence completeness, corroboration, correlation quality |
+| Risk | Decision |
+|---|---|
+| `< 30` | ALLOW |
+| `30–59` | MONITOR |
+| `60–79` | STEP_UP_AUTH |
+| `≥ 80` | BLOCK |
 
-Severity and confidence never replace or recompute the enforcement risk score.
+Hard failures bypass the numeric score entirely and block with a fixed severity (e.g. forged signature 95, replay 90, no policy 70). High-risk requests are held for a single-use TOTP code rather than blocked outright, so legitimate-but-unusual traffic has a path forward.
 
 ## Threat Intelligence
 
+Findings are classified into the implemented taxonomy (`src/threat/contracts.ts`):
+
+- `IDENTITY_COMPROMISE` — forged, unknown, or spoofed workload identity
+- `AUTHENTICATION_TOKEN_ABUSE` — expired, replayed, revoked, over-long-lived, or malformed-claim tokens
+- `AUTHORIZATION_POLICY_VIOLATION` — default-deny denials: missing policy, explicit deny, method/path denials, time windows
+- `BEHAVIORAL_ANOMALY` — off-hours activity, per-pair rate spikes, frequency bursts
+- `LATERAL_MOVEMENT` — multi-hop traversal inside one trace; always critical, always a hard override
+- `RECONNAISSANCE_PROBING` — taxonomy slot fed today by contextual evidence such as sensitive-endpoint hits (no standalone probing detector is claimed)
+- `REQUEST_PAYLOAD_ABUSE` — anomalous body size, depth, or statistical size deviation
+- `SERVICE_GRAPH_ANOMALY` — first-seen service edges and graph-context deviations
+
+A finding does not independently block traffic. Findings describe what correlated evidence shows; the pipeline alone decides what gets blocked.
+
+## Findings, Correlation & Investigations
+
+```text
+Signals → Evidence → Correlation → Threat Finding → Investigation
 ```
-PipelineResult ──► normalize ──► NormalizedSignals + Evidence ──► correlate
-    ──► assess (category exposure, confidence, severity) ──► ThreatFinding
-    ──► read-only API + WS events ──► investigation / attack path / console
-```
 
-- **Normalization** maps pipeline reasons and risk factors to typed signals (`TOKEN_REPLAY`, `POLICY_DENIED`, `RATE_SPIKE`, …) with roles (`threat_signal` vs. `contextual_evidence` vs. `control_outcome` vs. `decision_context`), plus primitive-only evidence (no payloads, tokens, or secrets by construction).
-- **Taxonomy** (8 categories, from `src/threat/contracts.ts`): `IDENTITY_COMPROMISE`, `AUTHENTICATION_TOKEN_ABUSE`, `AUTHORIZATION_POLICY_VIOLATION`, `BEHAVIORAL_ANOMALY`, `LATERAL_MOVEMENT`, `RECONNAISSANCE_PROBING`, `REQUEST_PAYLOAD_ABUSE`, `SERVICE_GRAPH_ANOMALY`.
-- **Category exposure** sums *unique* factor-contribution points per category (capped at 100). It is explanatory — where correlated exposure concentrates — and is never added to enforcement risk.
-
-## Threat Findings / Correlation
-
-- **Lifecycle** — findings open on first correlated signal and update on recurrence (count, first/last seen, latest decision context, max risk); entries expire outside the correlation window (60 s; 1 s for traces) and capacity evicts oldest-first (max 5,000 active findings, 100 evidence refs each; observations ring-capped at 5,000).
-- **Correlation keys** — `trace:<id>` (lateral movement), `edge:<src>-><dst>`, `service:<id>`, or `request:<id>` fallback.
-- **Deduplication** — risk contribution ids and evidence ids are appended uniquely and bounded, so recurrence can never inflate or duplicate proof.
-- **Attack paths** — reconstructed only from stored trace evidence (ordered service chain + trace id + timestamps). The API returns `{paths, totalActiveFindings}` so clients can distinguish *no data yet* from a *valid empty* result. Nothing is inferred beyond observed evidence.
-- **Limitation (honest)** — threat history is bounded and in-memory: a restart clears findings, and there is no persistent historical analytics store. The API is read-only; there are no analyst write/disposition actions yet.
+- **Request correlation** ties signals and evidence to the originating request id.
+- **Trace correlation** links hops of one call chain (`trace:<id>`), the basis for attack paths.
+- **Service-edge correlation** (`edge:<src>-><dst>`, `service:<id>`) groups repeat behavior on one relationship.
+- **Category-aware correlation** keeps each finding owned by exactly one primary category; secondary categories stay contextual.
+- **Bounded state**: at most 5,000 active findings and 100 evidence references per finding; expiry windows (60 s; 1 s for traces) retire stale correlations and capacity evicts oldest-first.
+- **Recurrence**: repeat observations update the existing finding (count, first/last seen, latest decision context, maximum risk) instead of duplicating it.
+- **Provenance**: every finding carries detector name/version, evidence ids, signal dispositions, and an assessment explanation.
+- **Attack paths** are reconstructed strictly from stored trace evidence — ordered service chains with timestamps — never inferred from policy or topology.
 
 ## Recommendation System
 
-The least-privilege engine (`GET /api/policies/recommendations`) is a pure function over current policies plus observed usage. It emits `REMOVE_UNUSED_POLICY`, `NARROW_METHODS`, `NARROW_PATHS`, `REVIEW_DENIED_EDGE`, or `INSUFFICIENT_DATA`. Safety rules: no advice before 10 minutes of observation or 20 hits per policy; denied edges are surfaced for *human* review only (an attack and a missing permission look identical); output includes a tightened policy document meant to be trialed with `DRY_RUN=true`. Recommendations never block, quarantine, or modify policy. Not AI-generated.
+```text
+Threat Finding
+      +
+Evidence
+      +
+Policy / Usage Context
+      ↓
+Deterministic Recommendation Rules
+      ↓
+Recommendation
+```
+
+Two advisory outputs, both deterministic and neither autonomous:
+
+- **Least-privilege recommender** (live via API): `REMOVE_UNUSED_POLICY`, `NARROW_METHODS`, `NARROW_PATHS`, `REVIEW_DENIED_EDGE`, or `INSUFFICIENT_DATA` when observation is thin. Denied edges are surfaced for human judgment only, and the proposed tightened policy set is meant to be trialed in dry-run first.
+- **Finding-level recommendation contract** with categories `CONTAIN`, `HARDEN`, `INVESTIGATE`, `MONITOR`, `OPTIMIZE` for classifying what a finding calls for.
+
+> Recommendations are advisory. The recommendation engine does not directly ALLOW, BLOCK, quarantine, revoke credentials, or mutate policy.
+
+Human approval is required before any recommendation becomes action.
 
 ## Real-Time Operations
 
-- **REST** — metrics snapshot (`byDecision`, throughput, pipeline latency percentiles, dry-run count), audit records + verify + summary, services, policies + status + recommendations, quarantine list, JWKS, simulator controls, and the `/api/threats/*` family (see table below).
-- **WebSocket** (`/ws`, same connection for everything) — `{type: "decision", data: PipelineResult}` on every verdict; `{type: "threat.finding.v1", data: FindingSummary}` per correlated finding. Threat events upsert console state; they never enter the decision feed.
-- **Simulator** — 13 scenarios (normal traffic + unauthorized access, forbidden sub-path, expired/tampered/replayed tokens, `alg:none`, HS256 confusion, wrong audience, spoofing, lateral movement, payload bomb, TOTP step-up) executed as real forged traffic through the live pipeline via `POST /api/simulator/run-all` or `npm run demo` (exits 1 on any failure).
+- **REST API** — metrics snapshots, audit records/verification/summary, services, policies and their status, recommendations, quarantine, JWKS, simulator controls, and the full `/api/threats/*` family.
+- **WebSocket event stream** (`/ws`) — `{type: "decision"}` on every verdict plus the versioned `{type: "threat.finding.v1"}` per correlated finding, over the same connection the console already holds.
+- **Live decisions** populate the operations feed, posture metrics, and attention queue within milliseconds of the pipeline verdict.
+- **Threat finding events** upsert console state without polling or page reloads, preserving filters and the open investigation.
+- **Metrics** track decision distribution, throughput, pipeline latency percentiles, and dry-run violations.
+- **Audit events** are hash-chained per decision and verifiable on demand from the Containment view.
+- **SOC console** ties it together: monitor, investigate, understand, control, and respond from one surface.
 
-## Frontend / Security Operations Console
+## SOC Console / Frontend
 
-`public/index.html` (no framework, no extra dependencies) consumes REST + the single WebSocket and computes no security values. Views: **Overview** (posture, decision distribution, attention queue), **Live Operations** (filterable decision stream + event-investigation workspace with identity/why/timeline/decision-context), **Threat Findings** (severity/risk/confidence list + finding detail with signals and evidence), **Investigations** (per-correlation-key evidence/timeline/decisions), **Threat Categories** (exposure vs. severity vs. confidence vs. risk), **Attack Paths** (observed hop chains), **Service Map** (policy-derived relationships, default-deny statement), **Service Activity**, **Behavioral Anomalies**, **Policies**, **Containment** (quarantine + audit-chain status), **Audit**, **Recommendations**, **Attack Simulator**. Light/dark themes, responsive down to mobile, keyboard-accessible with visible focus and text-plus-color status.
+A dependency-free single-page console (`public/index.html`) organized as **Monitor → Investigate → Understand → Control → Respond**:
+
+- **Overview** — posture, decision distribution, live attention queue, analyst advisory
+- **Live Operations** — filterable decision stream with timestamp, route, verdict, risk, and factor counts
+- **Threat Findings** — severity/risk/confidence list with full finding detail (signals, evidence, assessment)
+- **Investigations** — per-correlation-key evidence, timeline, and decision history
+- **Threat Categories** — exposure vs. severity vs. confidence vs. risk, kept visually distinct
+- **Attack Paths** — observed multi-hop service chains
+- **Service Map / Service Activity / Behavioral Anomalies** — policy-derived relationships and live pair behavior
+- **Policies / Containment / Audit** — enforcement controls, quarantine state, chain verification
+- **Recommendations / Attack Simulator** — advisory output and the 13-scenario live-fire panel
 
 ## API Overview
+
+### Core Operations
 
 | Endpoint | Purpose |
 |---|---|
 | `ANY /api/proxy/*` | Enforced entry point (Bearer token + `X-Destination-Service`) |
 | `GET /healthz` | Liveness |
-| `GET /api/metrics` | Decision counts, throughput, pipeline latency, dry-run violations |
-| `GET /api/services` | Registered services (public halves only) |
-| `GET /api/policies`, `GET /api/policies/status` | Active policies + file version info |
-| `GET /api/policies/recommendations` | Least-privilege report + trial policy document |
-| `GET /api/quarantine` | Currently isolated services |
-| `GET /api/audit`, `GET /api/audit/verify`, `GET /api/audit/summary` | Records (filterable), hash-chain verification, counts |
-| `GET /.well-known/jwks.json` | Valid public keys (RFC 7517) |
-| `GET /api/threats/findings` | Active findings — bounded, filterable, paginated (`limit`, `cursor`) |
-| `GET /api/threats/findings/:findingId` | One finding with signals, evidence, assessment (404 if expired) |
-| `GET /api/threats/categories` | Per-category exposure aggregates |
-| `GET /api/threats/investigations/:correlationKey` | Grouped findings + evidence + timeline (404 if none active) |
-| `GET /api/threats/attack-paths` | Reconstructed multi-hop paths (honest empty when none) |
-| `GET /api/threats/summary` | Compact counts for badges |
 | `GET /api/simulator/scenarios`, `POST /api/simulator/run-all`, `POST /api/simulator/:id` | Attack-scenario controls |
-| `POST /admin/services`, `/admin/services/:id/rotate-key`, `/admin/services/:id/status`, `/admin/services/:id/keys/:kid/revoke`, `/admin/tokens/revoke`, `/admin/policies/reload`, `/admin/quarantine/:id/release` | Mutating operations — always require `x-admin-key` |
-| `WS /ws` | Live `decision` and `threat.finding.v1` events |
 
-Read-only dashboard routes are open when `PUBLIC_DASHBOARD=true` (demo default) and key-protected otherwise; the proxy never mints tokens and there is no unauthenticated token endpoint.
+### Threat Intelligence
 
-## Running the Project
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/threats/findings` | Active findings — bounded, filterable, paginated |
+| `GET /api/threats/findings/:findingId` | One finding with signals, evidence, assessment (404 when expired) |
+| `GET /api/threats/categories` | Per-category exposure aggregates |
+| `GET /api/threats/investigations/:correlationKey` | Grouped findings, evidence, timeline (404 when none active) |
+| `GET /api/threats/attack-paths` | Reconstructed paths; honest empty when none observed |
+| `GET /api/threats/summary` | Compact counts for console badges |
 
-Requires Node ≥ 20. Copy `.env.example` to `.env` as needed (all settings optional; unset `ADMIN_API_KEY` generates a random one per run, printed at startup).
+### Observability
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/metrics` | Decision counts, throughput, pipeline latency |
+| `GET /api/audit`, `GET /api/audit/verify`, `GET /api/audit/summary` | Records, chain verification, counts |
+| `GET /api/services` | Registered services (public keys only) |
+
+### Security Controls
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/policies`, `GET /api/policies/status`, `GET /api/policies/recommendations` | Policy set, file version, least-privilege report |
+| `GET /api/quarantine` | Currently isolated services |
+| `GET /.well-known/jwks.json` | Valid public keys |
+| `POST /admin/services`, `…/rotate-key`, `…/status`, `…/keys/:kid/revoke`, `/admin/tokens/revoke`, `/admin/policies/reload`, `/admin/quarantine/:id/release` | Mutating operations — always require `x-admin-key` |
+
+## Demo / Evaluation Flow
+
+```text
+Normal Request
+      ↓
+Security Pipeline
+      ↓
+Risk / Decision
+      ↓
+Security Event
+      ↓
+Threat Correlation
+      ↓
+Threat Finding
+      ↓
+Investigation / Attack Path
+```
+
+The fastest way to walk this flow: start the server, open the console, run all simulator scenarios, then watch findings, the lateral-movement attack path, and category exposure appear from real pipeline verdicts. Synthetic-detector evaluation (`npm run evaluate` → `docs/EVALUATION.md`) and the 20-service load test (`npm run loadtest` → `docs/LOADTEST.md`) extend the story with measured numbers — see below. No hosted demo exists; everything runs locally.
+
+## Testing & Validation
+
+- **Suite: 173 tests across 23 files** (`npm test`). Last full run in this environment: **171/173** — the 2 failures are both in `e2e.test.ts` and time-of-day dependent: at 02:40 UTC the off-hours factor (+5) pushed the step-up probe to exactly 80, flipping it from `STEP_UP_AUTH` to `BLOCK` (which quarantined the service and cascaded into the simulator's forbidden-path scenario). Daytime runs are green; no code was changed for this README.
+- **Typecheck and build clean** (`tsc --noEmit`, `tsc -p tsconfig.build.json`); CI enforces typecheck, test, build, and demo on Node 20 and 22.
+- **Simulator: 13 scenarios** (1 normal + 12 attacks: unauthorized access, forbidden sub-path, expired/tampered/replayed tokens, `alg:none`, HS256 confusion, wrong audience, spoofing, lateral movement, payload bomb, TOTP step-up) — all passing when the suite is green; `npm run demo` exits 1 on any failure.
+- **Synthetic detector evaluation** (`docs/EVALUATION.md`, explicitly synthetic — not production accuracy): baseline-tuned variant holds FPR at `0.000 ± 0.000%` at 1x load vs `0.093 ± 0.059%` for fixed thresholds; removing declared workflows degrades FPR to `1.332 ± 0.119%`.
+- **Load test** (`docs/LOADTEST.md`, 20 services, shared-CPU lower bound): 3,107 rps at 50 connections; server-side pipeline latency p50 4.347 ms, p99 63.575 ms.
+- **Live-validated**: dashboard 200, single WebSocket carrying both decision and `threat.finding.v1` events, all four decisions observed in metrics, audit chain verifying after attack traffic.
+
+## Run Locally
+
+Prerequisites: Node ≥ 20.
 
 ```bash
 npm ci              # install dependencies
-npm run dev         # start with live reload (dashboard: http://localhost:4000)
-npm run build       # compile to dist/
-npm start           # run the compiled build
-npm run typecheck   # tsc --noEmit (must be clean before committing)
-npm test            # full suite: node:test over test/*.test.ts via tsx
-npm run demo        # 13 attack scenarios through the real pipeline (exit 1 on failure)
-npm run bench       # autocannon benchmark of the proxy path
-npm run evaluate    # detector evaluation harness -> docs/EVALUATION.md
-npm run loadtest    # multi-service concurrency sweep -> docs/LOADTEST.md
+npm run dev         # start with reload (console: http://localhost:4000)
+npm test            # full suite (node:test via tsx)
+npm run demo        # 13 live attack scenarios (exit 1 on any failure)
+npm run typecheck   # must be clean before committing
+npm run build       # compile to dist/, then npm start to serve it
 ```
 
-## Testing / Validation
-
-- **173/173 tests passing** across 23 test files (verified with `npm test`): pipeline verdicts, token security (incl. `alg=none`/confusion/replay-after-signature), policy engine + hot reload, risk/baseline math, lateral movement, quarantine framing, audit-chain tamper detection, threat contracts/correlation/assessment, recommender, eval harness, end-to-end HTTP, and the threat-API/WS contract suite.
-- `npm run typecheck` and `npm run build` clean; CI runs typecheck, test, build, and demo on Node 20 and 22.
-- Simulator regression: 13/13 scenarios behave as expected against the live server; audit chain verifies and metrics reconcile after the run.
-- Live-validated: dashboard serves (200), single WebSocket delivers both decision and versioned threat events, all four decisions observed in metrics, attack path reconstructed end-to-end from a real 3-hop trace.
-
-## Evaluation Results
-
-*From `docs/EVALUATION.md` (synthetic data)*
-
-**Tuning Results:** Best parameters found maximizing F1 (subject to FPR <= 1%):
-`alpha: 0.1`, `zWarn: 2`, `spikeHighPoints: 15`, `zScorePoints: 10`
-
-**Variant Comparison (1x Load):**
-| Variant | Behavioral F1 | FPR |
-|---------|---------------|-----|
-| Fixed Thresholds | 0.003 ± 0.000 | 0.093 ± 0.059% |
-| Baseline Tuned | 0.002 ± 0.000 | 0.000 ± 0.000% |
-
-**Ablation Study (1x Load, Tuned Params):**
-- Removing Workflows degrades FPR to `1.332 ± 0.119%`.
-- Reverting to Fixed Thresholds increases FPR to `0.093 ± 0.059%`.
-
-**Load Scaling (Baseline Tuned):**
-- 1x Load: F1 `0.002 ± 0.000`, FPR `0.000 ± 0.000%`
-- 2x Load: F1 `0.001 ± 0.000`, FPR `0.004 ± 0.006%`
-- 4x Load: F1 `0.001 ± 0.000`, FPR `0.000 ± 0.000%`
-
-## Load-Test Results
-
-*From `docs/LOADTEST.md` (Node.js v24.14.0 on 12th Gen i5, 20 services)*
-
-**Raw Results (ON - default):**
-- 10 connections: 484 rps (p50: 19ms, p99: 36ms)
-- 50 connections: 3107 rps (p50: 14ms, p99: 26ms)
-- 100 connections: 532 rps (p50: 174ms, p99: 485ms)
-
-**Server-Side Pipeline Latency (ON - default):**
-- p50: 4.347 ms
-- p95: 46.675 ms
-- p99: 63.575 ms
-
-*(Note: Load generator and proxy shared the same CPU, so throughput is a lower bound).*
+Optional: copy `.env.example` to `.env`. Everything has defaults; leaving `ADMIN_API_KEY` empty generates a random one per run (printed at startup). Key tunables: `PORT`, `PUBLIC_DASHBOARD`, `RISK_MONITOR_AT` / `RISK_STEP_UP_AT` / `RISK_BLOCK_AT`, `POLICY_FILE`, `DRY_RUN`, `RISK_MODE`, threat-correlation windows and caps, `KEY_ROTATION_MS`. Never commit real secrets.
 
 ## Security Design Principles
 
-- **Default deny** — unlisted service pairs are blocked; equal-priority ties fail safe.
-- **Least privilege** — usage-tracked policies plus an advisory tightener that proposes before enforcing.
-- **Workload identity** — cryptographic service identity with pinned algorithms, anti-spoof binding, and single-use tokens.
-- **Defense in depth** — eight ordered gates from IP quota to risk decision; a bypass in one layer still faces the rest.
-- **Explicit authorization** — policy-as-code with strict validation, atomic reloads, and dry-run rollout.
-- **Explainability** — risk is a named-factor sum; findings carry signals, evidence, and assessment rationale.
-- **Evidence-based assessment** — severity and confidence derive from stored proof under fixed rules, never from gut feel or from the risk score.
-- **Deterministic enforcement** — same inputs, same verdict; statistical methods are confined to observation and scoring inputs.
-- **Bounded state** — capped maps, ring buffers, and capacity-evicted correlation so memory cannot grow unboundedly.
-- **Auditability** — every decision hash-chained; tampering is detectable via `/api/audit/verify`.
-- **Separation of analysis and enforcement** — threat intelligence observes finalized verdicts and can never change one.
+- Default deny with fail-closed ties and explicit authorization
+- Cryptographic workload identity (Ed25519, pinned algorithm, single-use ids)
+- Fail-closed controls: hard failures reject immediately with fixed severities
+- Explainable risk: named factors, exact-sum scores, surfaced evidence
+- Bounded state: capped maps, ring buffers, capacity-evicted correlation
+- Immutable, auditable security events via a hash-chained log
+- Separation of enforcement and intelligence — analysis can never override a verdict
+- No raw secrets in threat findings: evidence is primitive-only by construction
+- Deterministic enforcement: same inputs, same verdict; statistics stay in observation
 
 ## Known Limitations
 
-- **In-memory state**: JTI store, rate limits, audit log, and threat findings live in memory (a `JtiStore` interface exists for a future Redis backend); restarts clear them.
-- **No mTLS**: traffic between proxy and backends is plain HTTP on loopback.
-- **Lateral-slow miss**: the `lateral-slow` attack class spreads traversal over 8 s and bypasses the 1 s correlation window by design.
-- **Synthetic evaluation**: the evaluation uses synthetic data generated by the same author who wrote the detector, so real-world performance is likely lower.
-- **Ed25519 is not quantum-resistant**: cryptographic identity relies on standard Ed25519.
-- **Read-only intelligence API**: findings, investigations, and paths are observable but there are no analyst write/disposition actions yet.
+Engineering boundaries, not gaps in the story:
+
+- **In-memory state** — token ids, rate limits, audit log, and threat findings live in process (a `JtiStore` interface exists for a future Redis backend); restarts clear them.
+- **No persistent finding history** — correlations expire by window and capacity; there is no long-term analytics store yet.
+- **No ML/LLM detection** — assessment is rules, EWMA/z-score statistics, and fixed criteria. This is deliberate and stated as such.
+- **Advisory recommendations** — nothing auto-remediates; human approval is required before action.
+- **Bounded correlation windows** — a slow traversal spread past the trace window (see the `lateral-slow` evaluation class) evades trace correlation by design.
+- **Synthetic evaluation** — the harness generates its own traffic with the same author's detector, so real-world performance is likely lower.
+- **No mTLS** — proxy-to-backend traffic is plain HTTP on loopback; Ed25519 is not quantum-resistant.
+
+## Screenshots
+
+> Screenshots can be added here for the SOC console, live operations,
+> threat investigations, and attack-path analysis.
 
 ## Project Highlights
 
-- Built an 8-stage zero-trust enforcement pipeline (Ed25519 workload identity, anti-spoofing, single-use tokens, default-deny policy-as-code, rate limiting, quarantine, TOTP step-up) with every verdict explained and audit-chained.
-- Implemented statistical behavioral detection — per-pair EWMA rate baselines with warm-up and winsorised learning, plus payload z-score analysis — feeding an explainable `min(100, Σ factors)` risk model with fixed-severity hard failures.
-- Designed a threat-intelligence layer that normalizes verdicts into typed signals/evidence, correlates them into findings with recurrence and contribution deduplication, and assesses them under three strictly separated models (risk, severity, confidence).
-- Exposed findings through a bounded, filterable, versioned read-only API plus additive WebSocket events, and built a 14-view SOC console on top that renders authoritative data and computes no security values itself.
-- Validated with 173 passing tests, a 13-scenario live attack simulator, a labeled-traffic evaluation harness with grid-searched tuning, and a 20-service load test — all reproducible via npm scripts.
+- Zero-trust service-to-service enforcement: 8-stage pipeline with cryptographic workload identity and default-deny authorization.
+- Explainable risk engine: exact-sum factor ledger, fixed-severity hard failures, and TOTP step-up instead of blunt blocking.
+- Lateral-movement detection with automatic quarantine, plus per-pair EWMA behavioral baselines that keep false positives near zero in synthetic evaluation.
+- Threat-intelligence correlation turning verdicts into categorized findings, investigations, and reconstructed attack paths — analytical, never overriding enforcement.
+- Real-time SOC operations over REST plus one WebSocket (`decision`, `threat.finding.v1`), with a 14-view console that computes no security values itself.
+- Deterministic recommendation engine (least-privilege rules + finding-action taxonomy), strictly advisory with human approval.
+- Comprehensive automated testing: 173 tests, live 13-scenario attack simulator, evaluation harness, and load-test sweep — all reproducible via npm scripts.

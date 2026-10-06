@@ -184,6 +184,14 @@ The factor ledger is authoritative: each contribution has a stable id, so recurr
 
 Hard failures bypass the numeric score entirely and block with a fixed severity (e.g. forged signature 95, replay 90, no policy 70). High-risk requests are held for a single-use TOTP code rather than blocked outright, so legitimate-but-unusual traffic has a path forward.
 
+Behavioral signals reach decisions through the same ledger: a high-confidence rate spike (`z >= zHigh` on a warm per-pair baseline) contributes 30 points, so it crosses the existing `MONITOR` boundary on its own —
+
+```text
+high-confidence RATE_SPIKE → 30 risk points → existing MONITOR boundary → visible, forwarded MONITOR decision
+```
+
+This is deterministic rule-based detection, not AI/ML, and it changes no threshold: the boundary was always 30, the signal simply carries enough weight to reach it now. Measured tradeoff in synthetic evaluation: behavioral recall 0.002 → 0.128 with FPR 0.12% → 2.11% (see `docs/EVALUATION.md`; not production accuracy).
+
 ## Threat Intelligence
 
 Findings are classified into the implemented taxonomy (`src/threat/contracts.ts`):
@@ -321,10 +329,10 @@ The fastest way to walk this flow: start the server, open the console, run all s
 
 ## Testing & Validation
 
-- **Suite: 173 tests across 23 files** (`npm test`). Last full run in this environment: **171/173** — the 2 failures are both in `e2e.test.ts` and time-of-day dependent: at 02:40 UTC the off-hours factor (+5) pushed the step-up probe to exactly 80, flipping it from `STEP_UP_AUTH` to `BLOCK` (which quarantined the service and cascaded into the simulator's forbidden-path scenario). Daytime runs are green; no code was changed for this README.
+- **Suite: 227 tests across 27 files** (`npm test`), all passing — including deterministic E2E (the suite pins business-hours config for its app, so the former time-of-day failures cannot recur) and behavioral-decision regression tests.
 - **Typecheck and build clean** (`tsc --noEmit`, `tsc -p tsconfig.build.json`); CI enforces typecheck, test, build, and demo on Node 20 and 22.
-- **Simulator: 13 scenarios** (1 normal + 12 attacks: unauthorized access, forbidden sub-path, expired/tampered/replayed tokens, `alg:none`, HS256 confusion, wrong audience, spoofing, lateral movement, payload bomb, TOTP step-up) — all passing when the suite is green; `npm run demo` exits 1 on any failure.
-- **Synthetic detector evaluation** (`docs/EVALUATION.md`, explicitly synthetic — not production accuracy): baseline-tuned variant holds FPR at `0.000 ± 0.000%` at 1x load vs `0.093 ± 0.059%` for fixed thresholds; removing declared workflows degrades FPR to `1.332 ± 0.119%`.
+- **Simulator: 13 scenarios** (1 normal + 12 attacks: unauthorized access, forbidden sub-path, expired/tampered/replayed tokens, `alg:none`, HS256 confusion, wrong audience, spoofing, lateral movement, payload bomb, TOTP step-up) — all passing; `npm run demo` exits 1 on any failure.
+- **Synthetic detector evaluation** (`docs/EVALUATION.md`, explicitly synthetic — not production accuracy): the pre-existing report above plus Phase-1 behavioral measurements — high-confidence spikes reach `MONITOR` (behavioral recall 0.002 → 0.128, FPR 0.12% → 2.11%, batch-edge 2/2281, hard-fail recall 1.000). The FPR increase is an explicit visibility tradeoff, documented honestly in the report.
 - **Load test** (`docs/LOADTEST.md`, 20 services, shared-CPU lower bound): 3,107 rps at 50 connections; server-side pipeline latency p50 4.347 ms, p99 63.575 ms.
 - **Live-validated**: dashboard 200, single WebSocket carrying both decision and `threat.finding.v1` events, all four decisions observed in metrics, audit chain verifying after attack traffic.
 
@@ -364,6 +372,7 @@ Engineering boundaries, not gaps in the story:
 - **No ML/LLM detection** — assessment is rules, EWMA/z-score statistics, and fixed criteria. This is deliberate and stated as such.
 - **Advisory recommendations** — nothing auto-remediates; human approval is required before action.
 - **Bounded correlation windows** — a slow traversal spread past the trace window (see the `lateral-slow` evaluation class) evades trace correlation by design.
+- **Partial behavioral recall** — slow rate ramps largely evade the EWMA baseline and lone payload anomalies generally need corroborating factors; measured recall/FPR tradeoffs are in `docs/EVALUATION.md`, not production accuracy claims.
 - **Synthetic evaluation** — the harness generates its own traffic with the same author's detector, so real-world performance is likely lower.
 - **No mTLS** — proxy-to-backend traffic is plain HTTP on loopback; Ed25519 is not quantum-resistant.
 
@@ -376,8 +385,8 @@ Engineering boundaries, not gaps in the story:
 
 - Zero-trust service-to-service enforcement: 8-stage pipeline with cryptographic workload identity and default-deny authorization.
 - Explainable risk engine: exact-sum factor ledger, fixed-severity hard failures, and TOTP step-up instead of blunt blocking.
-- Lateral-movement detection with automatic quarantine, plus per-pair EWMA behavioral baselines that keep false positives near zero in synthetic evaluation.
+- Lateral-movement detection with automatic quarantine, plus per-pair EWMA behavioral baselines whose high-confidence spikes reach `MONITOR` (synthetic eval: recall 0.128 at 2.11% FPR with batch-edge flags at 2/2281 — an explicit visibility tradeoff, not an accuracy claim).
 - Threat-intelligence correlation turning verdicts into categorized findings, investigations, and reconstructed attack paths — analytical, never overriding enforcement.
 - Real-time SOC operations over REST plus one WebSocket (`decision`, `threat.finding.v1`), with a 14-view console that computes no security values itself.
 - Deterministic recommendation engine (least-privilege rules + finding-action taxonomy), strictly advisory with human approval.
-- Comprehensive automated testing: 173 tests, live 13-scenario attack simulator, evaluation harness, and load-test sweep — all reproducible via npm scripts.
+- Comprehensive automated testing: 227 tests, live 13-scenario attack simulator, evaluation harness, and load-test sweep — all reproducible via npm scripts.

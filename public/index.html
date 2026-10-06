@@ -349,23 +349,6 @@ body{
 .sidebar-input:focus{outline:none;border-color:var(--sidebar-active-text);}
 .sidebar-input::placeholder{color:rgba(241,238,230,0.22);}
 .sidebar-bottom-row{display:flex;align-items:center;gap:8px;justify-content:space-between;}
-.sidebar-system{
-  display:flex;flex-direction:column;gap:3px;
-  padding:8px 10px;
-  border:1px solid var(--sidebar-divider);
-  border-radius:4px;
-  background:rgba(0,0,0,0.18);
-}
-.sidebar-system-row{
-  display:flex;align-items:center;justify-content:space-between;gap:8px;
-  font-size:10px;color:var(--sidebar-label);
-}
-.sidebar-system-row strong{
-  font:700 10px var(--mono);color:var(--sidebar-text);
-  font-variant-numeric:tabular-nums;white-space:nowrap;
-}
-.sidebar-system-row strong.ok{color:var(--allow);}
-.sidebar-system-row strong.bad{color:var(--block);}
 .status-indicator{
   display:flex;
   align-items:center;
@@ -485,18 +468,6 @@ body{
   max-width:580px;
   line-height:1.5;
 }
-.page-meta{
-  display:flex;
-  align-items:center;
-  gap:7px;
-  font:700 10px var(--mono);
-  letter-spacing:.5px;
-  text-transform:uppercase;
-  color:var(--text-secondary);
-  flex-shrink:0;
-  white-space:nowrap;
-}
-
 /* =====================================================
    CONSOLE VIEWS (routing)
    ===================================================== */
@@ -1400,11 +1371,6 @@ button:focus-visible{outline:1px solid var(--sidebar-active-text);outline-offset
       </div>
       <button class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()">☾ Dark</button>
     </div>
-    <div class="sidebar-system" aria-label="System status">
-      <div class="sidebar-system-row"><span>Audit chain</span><strong id="side-audit">checking…</strong></div>
-      <div class="sidebar-system-row"><span>Quarantined</span><strong id="side-quarantine">—</strong></div>
-      <div class="sidebar-system-row"><span>Policies</span><strong id="side-policies">—</strong></div>
-    </div>
     <div>
       <label class="sidebar-label" for="key">Admin Key</label>
       <input id="key" class="sidebar-input" type="password" placeholder="x-admin-key" autocomplete="off">
@@ -1433,10 +1399,6 @@ button:focus-visible{outline:1px solid var(--sidebar-active-text);outline-offset
     </div>
     <div class="status-bar-right">
       <span id="health-dryrun" class="health-dryrun">⚠ DRY RUN</span>
-      <div class="status-segment">
-        <span id="health-ws-dot" class="status-dot-sm status-dot-muted"></span>
-        <span id="health-ws-text" style="font-size:10.5px;color:var(--text-secondary);">Connecting…</span>
-      </div>
     </div>
   </div>
 
@@ -1449,10 +1411,6 @@ button:focus-visible{outline:1px solid var(--sidebar-active-text);outline-offset
         <p class="page-eyebrow">Zero-trust security operations</p>
         <h1 class="page-title" id="page-title">Security Command Center</h1>
         <p class="page-description" id="page-description">Monitor authoritative pipeline outcomes, validate controls, and investigate activity across the mesh.</p>
-      </div>
-      <div class="page-meta">
-        <span id="page-state-dot" class="status-dot-sm status-dot-muted"></span>
-        <span id="page-state">Synchronizing</span>
       </div>
     </header>
 
@@ -2331,10 +2289,6 @@ function updateHealthBar(m,v,ps){
   const statusEl=$('health-status');
   if(dot)dot.className='status-dot-sm '+dotClass;
   if(statusEl){statusEl.className='status-state '+statusClass;statusEl.textContent=statusText;}
-  const pageState=$('page-state');
-  const pageStateDot=$('page-state-dot');
-  if(pageState)pageState.textContent=statusText;
-  if(pageStateDot)pageStateDot.className='status-dot-sm '+dotClass;
   const totalEl=$('health-total');
   if(totalEl)totalEl.textContent=(m.total||0).toLocaleString()+' evaluated';
   const chainEl=$('health-chain');
@@ -2435,14 +2389,9 @@ async function refreshMetrics(){
         '<span>'+m.total+' total evaluated</span>';
     }
 
-    /* Sidebar system status + nav counts (all authoritative REST data) */
-    const setSide=(id,text,cls)=>{
-      const e=$(id);
-      if(e){e.textContent=text;e.className=cls||'';}
-    };
-    setSide('side-audit',v.valid?('intact · '+v.checked):('BROKEN @ #'+v.brokenAtSeq),v.valid?'ok':'bad');
-    setSide('side-quarantine',String((q&&q.length)||0),(q&&q.length)?'bad':'ok');
-    setSide('side-policies',String((ps&&!ps.error)?ps.policyCount:'—'));
+    /* Nav counts (all authoritative REST data). Phase 6C: the sidebar
+       mini status block was removed as a duplicate of the statusbar + nav
+       badges, so no per-row writers remain. */
     const nPol=$('nav-count-policies');
     if(nPol)nPol.textContent=(ps&&!ps.error)?ps.policyCount:'—';
     const nQ=$('nav-count-quarantine');
@@ -3172,22 +3121,16 @@ function connect(){
     ($('key').value?'?key='+encodeURIComponent($('key').value):'');
   const ws=new WebSocket(url);
 
+  // Phase 6C: single authoritative connection indicator (sidebar).
+  // The statusbar no longer duplicates it — see shell audit in history.
   ws.onopen=()=>{
     $('ws-text').textContent='Feed Connected';
     $('ws-dot').classList.add('live');
-    const hwDot=$('health-ws-dot');
-    const hwText=$('health-ws-text');
-    if(hwDot){hwDot.className='status-dot-sm status-dot-ok';}
-    if(hwText)hwText.textContent='Feed Connected';
   };
 
   ws.onclose=()=>{
     $('ws-text').textContent='Reconnecting…';
     $('ws-dot').classList.remove('live');
-    const hwDot=$('health-ws-dot');
-    const hwText=$('health-ws-text');
-    if(hwDot){hwDot.className='status-dot-sm status-dot-warn';}
-    if(hwText)hwText.textContent='Reconnecting…';
     setTimeout(connect,2000);
   };
 

@@ -1877,6 +1877,43 @@ const recChip=(type)=>'<span class="rec-chip" title="Advisory recommendation —
 // absent level falls back to neutral — never to an invented band.
 const riskLevelClass=(level)=>['CRITICAL','HIGH','MEDIUM','LOW'].includes(level)?'risk-lvl-'+level:'risk-neutral';
 const meterFillClass=(level)=>['CRITICAL','HIGH','MEDIUM','LOW'].includes(level)?'lvl-'+level:'neutral';
+// Phase 6A: background WS renders must not yank operator state. Snapshot the
+// scrollable regions plus the focused control (matched later via data-fk);
+// callers restore immediately after a synchronous rebuild.
+function snapOperatorState(){
+  const ae=document.activeElement;
+  return {
+    ws:($('workspace')||{}).scrollTop||0,
+    feed:($('feed')||{}).scrollTop||0,
+    inv:($('investigation-panel')||{}).scrollTop||0,
+    focusKey:ae&&ae.dataset?ae.dataset.fk||null:null,
+  };
+}
+function restoreOperatorState(s){
+  if(!s)return;
+  const ws=$('workspace');if(ws)ws.scrollTop=s.ws;
+  const feed=$('feed');if(feed)feed.scrollTop=s.feed;
+  const inv=$('investigation-panel');if(inv)inv.scrollTop=s.inv;
+  if(s.focusKey){
+    const t=document.querySelector('[data-fk="'+s.focusKey+'"]');
+    if(t)t.focus({preventScroll:true});
+  }
+}
+// Phase 6A: trailing-edge coalescing for expensive auto-refreshes during
+// event storms — one immediate refresh, then at most one delayed follow-up.
+// Explicit user loads bypass this and stay immediate.
+const _coalesced={};
+function coalesceRefresh(key,fn,waitMs){
+  const now=Date.now();
+  const slot=_coalesced[key];
+  if(slot&&slot.timer)return; // trailing refresh already armed
+  if(slot&&now-slot.last<waitMs){
+    slot.timer=setTimeout(()=>{_coalesced[key]={last:Date.now(),timer:null};fn();},waitMs);
+    return;
+  }
+  _coalesced[key]={last:now,timer:null};
+  fn();
+}
 
 /* =====================================================
    NAVIGATION — sub-view aware routing
@@ -2017,10 +2054,12 @@ function filteredDecisions(){
 
 function renderFeed(){
   const feed=$('feed');
+  const _op=snapOperatorState();
   const decisions=filteredDecisions();
   updateFeedCount();
   if(!decisions.length){
     feed.innerHTML='<div class="feed-empty">'+(liveDecisions.length?'No live decisions match this filter.':'Awaiting live traffic…')+'</div>';
+    restoreOperatorState(_op);
     return;
   }
   feed.innerHTML='';
@@ -2034,6 +2073,7 @@ function renderFeed(){
     row.className='event-row'+(r.requestId===selectedDecisionId?' selected':'');
     row.style.borderLeftColor=borderColor;
     row.setAttribute('role','listitem');
+    row.dataset.fk='ev-'+r.requestId;
     row.setAttribute('aria-label','Inspect '+r.decision.replace(/_/g,' ')+', risk '+(r.riskScore||0)+', '+(r.source||'unknown')+' to '+(r.destination||'unknown')+', '+r.reason);
     const factorCount=Array.isArray(r.factors)?r.factors.length:0;
     const factorNote=factorCount?' · '+factorCount+' factor'+(factorCount===1?'':'s'):'';
@@ -2046,6 +2086,7 @@ function renderFeed(){
     row.addEventListener('click',()=>selectDecision(r.requestId));
     feed.appendChild(row);
   });
+  restoreOperatorState(_op);
 }
 
 function renderOverviewTimeline(){
@@ -2060,11 +2101,13 @@ function renderOverviewTimeline(){
     return;
   }
   timeline.className='activity-timeline';
+  const _op=snapOperatorState();
   timeline.innerHTML='';
   recent.forEach((r)=>{
     const b=document.createElement('button');
     b.type='button';
     b.className='activity-row';
+    b.dataset.fk='ac-'+r.requestId;
     b.setAttribute('role','listitem');
     b.setAttribute('aria-label','Investigate '+r.decision.replace(/_/g,' ')+' event '+r.source+' to '+r.destination);
     b.innerHTML=
@@ -2075,6 +2118,7 @@ function renderOverviewTimeline(){
     b.addEventListener('click',()=>inspectDecision(r.requestId));
     timeline.appendChild(b);
   });
+  restoreOperatorState(_op);
   renderAttentionQueue();
 }
 
@@ -2085,6 +2129,7 @@ function renderOverviewTimeline(){
 function renderAttentionQueue(){
   const el=$('attention-queue');
   if(!el)return;
+  const _op=snapOperatorState();
   const topFindings=(threatLoaded&&threatFindings.length)
     ?threatFindings.slice().sort((a,b)=>(SEV_ORDER[b.severity]||0)-(SEV_ORDER[a.severity]||0)||(b.lastSeenAt||0)-(a.lastSeenAt||0)).slice(0,3)
     :[];
@@ -2106,6 +2151,7 @@ function renderAttentionQueue(){
         :'Correlated threat findings and flagged session decisions will surface here, highest severity first. Findings live in Threat Intelligence.')+'</p>'+
       '<div class="data-boundary">Authoritative pipeline activity remains available in Live Operations</div>'+
       '</div></div></div>';
+    restoreOperatorState(_op);
     return;
   }
   el.innerHTML='';
@@ -2113,6 +2159,7 @@ function renderAttentionQueue(){
     const b=document.createElement('button');
     b.type='button';
     b.className='attention-row attn-'+(f.severity==='CRITICAL'||f.severity==='HIGH'?'block':'monitor');
+    b.dataset.fk='aqf-'+f.findingId;
     b.setAttribute('aria-label','Open '+f.severity+' '+f.category+' finding, risk '+(f.riskScore||0));
     b.innerHTML=
       '<span><span class="attention-route"><b class="'+sevClass(f.severity)+'" style="font-size:10.5px;">'+esc(f.severity)+'</b> '+esc(f.category).replace(/_/g,' ')+'</span><br>'+
@@ -2130,6 +2177,7 @@ function renderAttentionQueue(){
       const b=document.createElement('button');
       b.type='button';
       b.className='attention-row '+cls;
+      b.dataset.fk='aqd-'+r.requestId;
       b.setAttribute('aria-label','Investigate '+r.decision.replace(/_/g,' ')+', risk '+(r.riskScore||0)+', '+r.source+' to '+r.destination);
       b.innerHTML=
         '<span><span class="attention-route">'+esc(r.source||'?')+' → '+esc(r.destination||'?')+'</span><br>'+
@@ -2139,12 +2187,14 @@ function renderAttentionQueue(){
       b.addEventListener('click',()=>inspectDecision(r.requestId));
       el.appendChild(b);
     });
+  restoreOperatorState(_op);
 }
 
 function renderMeshActivityLive(){
   const el=$('mesh-activity-live');
   if(!el)return;
-  if(!liveDecisions.length){el.innerHTML='';return;}
+  const _op=snapOperatorState();
+  if(!liveDecisions.length){el.innerHTML='';restoreOperatorState(_op);return;}
   // Summarize by source→destination pairs
   const pairs={};
   liveDecisions.forEach((r)=>{
@@ -2173,12 +2223,14 @@ function renderMeshActivityLive(){
       '</tr>'
     ).join('')+
     '</tbody></table></div></div>';
+  restoreOperatorState(_op);
 }
 
 function selectDecision(requestId){
   selectedDecisionId=requestId;
   const r=liveDecisions.find((item)=>item.requestId===requestId);
   if(!r)return;
+  const _op=snapOperatorState();
   const factors=Array.isArray(r.factors)?r.factors:[];
   const stages=Array.isArray(r.stages)?r.stages:[];
   const factorHtml=factors.length
@@ -2245,6 +2297,7 @@ function selectDecision(requestId){
     if(rb)rb.addEventListener('click',()=>inspectFinding(rel.findingId,{returnTo:null}));
   }
   renderFeed();
+  restoreOperatorState(_op);
 }
 
 function addDecision(r){
@@ -2441,8 +2494,8 @@ async function refreshMetrics(){
       }
     }
 
-    /* Overview threat strip (P0-1: summary data already fetched for the badge) */
-    loadThreatStrip();
+    /* Overview threat strip + nav badge (Phase 6A: one shared fetch) */
+    refreshThreatSummary();
 
   } catch(e){ console.error(e); }
 }
@@ -2631,42 +2684,47 @@ async function loadThreatFindings(){
     threatLoaded=true;
     renderFindings();
     refreshInvOptions();
-    refreshThreatBadge();
+    refreshThreatSummary();
   }catch(e){console.error(e);}
 }
 
-// Threat Findings nav badge. Primary source is GET /api/threats/summary;
-// falls back to the list-derived total when that request fails (e.g.
-// private mode without a key). List fetching and filtering are unchanged.
-async function refreshThreatBadge(){
-  const badge=$('nav-badge-threats');
-  if(!badge)return;
+// Phase 6A: one shared summary fetch for badge + strip (no duplicate
+// WS-triggered requests). denied=true means HTTP 401; a null body otherwise
+// means unreachable/failed — callers fall back, never fabricate.
+async function fetchThreatSummary(){
   try{
     const res=await fetch('/api/threats/summary',{headers:{...keyHeader()}});
-    if(!res.ok)throw new Error('summary unavailable');
-    const body=await res.json();
-    badge.textContent=String(body.totalActiveFindings||0);
-  }catch(e){
-    if(threatLoaded)badge.textContent=String(threatTotal);
+    if(res.status===401)return {denied:true};
+    if(!res.ok)return {denied:false};
+    return {body:await res.json()};
+  }catch(e){return {denied:false};}
+}
+// Single request updates both the nav badge and the overview strip.
+async function refreshThreatSummary(){
+  const s=await fetchThreatSummary();
+  const badge=$('nav-badge-threats');
+  if(badge){
+    if(s.body)badge.textContent=String(s.body.totalActiveFindings||0);
+    else if(!s.denied&&threatLoaded)badge.textContent=String(threatTotal);
   }
+  renderThreatStrip(s.body||null,s.denied);
 }
 
 // P0-1: compact operational threat strip on Overview. Reads GET
 // /api/threats/summary only (plus the already-loaded list for scope when
 // present). Counts and ranks existing rows; invents no metrics or scores.
-async function loadThreatStrip(){
+function renderThreatStrip(body,denied){
   const el=$('threat-strip');
   const meta=$('threat-strip-meta');
   if(!el)return;
   try{
-    const res=await fetch('/api/threats/summary',{headers:{...keyHeader()}});
-    if(res.status===401){
-      if(meta)meta.textContent='KEY REQUIRED';
-      el.innerHTML='<span class="sub">Threat summary needs the admin key in private mode — enter it in the sidebar.</span>';
+    if(!body){
+      if(denied){
+        if(meta)meta.textContent='KEY REQUIRED';
+        el.innerHTML='<span class="sub">Threat summary needs the admin key in private mode — enter it in the sidebar.</span>';
+      }
       return;
     }
-    if(!res.ok)throw new Error('summary unavailable');
-    const body=await res.json();
     const total=body.totalActiveFindings||0;
     if(meta)meta.textContent=total?(total+' ACTIVE'):'CLEAR';
     if(!total){
@@ -2741,11 +2799,13 @@ function renderFindings(){
   const count=$('findings-count');
   if(count)count.textContent=threatLoaded?(threatTotal+' active'):'—';
   const el=$('findings-list');
+  const _op=snapOperatorState();
   if(!threatFindings.length){
     el.innerHTML='<div class="intel-empty-state"><span class="intel-empty-icon" aria-hidden="true">◆</span>'+
       '<h3 class="intel-state-title">No active findings</h3>'+
       '<p class="intel-state-body">Findings appear here as the pipeline observes threat signals — run the Attack Simulator or wait for live traffic. Nothing is fabricated: an empty list means no active correlations.</p>'+
       '<div class="intel-contract-notice"><strong>Scope:</strong> only active (non-expired) correlations are listed. Pipeline risk remains authoritative in Live Operations.</div></div>';
+    restoreOperatorState(_op);
     return;
   }
   el.innerHTML='<div class="table-container" role="list"><div class="event-stream-header" style="grid-template-columns:110px minmax(150px,1.2fr) minmax(140px,1fr) auto;" aria-hidden="true"><span>SEVERITY</span><span>FINDING</span><span>SOURCE → DEST</span><span style="text-align:right;">RISK · CONF</span></div></div>';
@@ -2754,6 +2814,7 @@ function renderFindings(){
     const b=document.createElement('button');
     b.type='button';
     b.className='finding-row sev-'+sevRank(f.severity)+(f.findingId===selectedFindingId?' selected':'');
+    b.dataset.fk='fd-'+f.findingId;
     b.setAttribute('role','listitem');
     b.setAttribute('aria-label','Open '+f.severity+' '+f.category+' finding, risk '+f.riskScore+', confidence '+f.confidenceScore);
     b.innerHTML=
@@ -2764,6 +2825,7 @@ function renderFindings(){
     b.addEventListener('click',()=>openFinding(f.findingId,{returnTo:null}));
     wrap.appendChild(b);
   });
+  restoreOperatorState(_op);
 }
 
 async function openFinding(findingId,opts){
@@ -2802,6 +2864,7 @@ function backFromFinding(){
 // exact same safe request; Back preserves the previous navigation context.
 function renderFindingFailed(findingId,expired){
   const el=$('finding-detail');
+  const _op=snapOperatorState();
   if(expired){
     el.innerHTML='<div class="intel-empty-state"><h3 class="intel-state-title">Finding no longer active</h3>'+
       '<p class="intel-state-body">This finding expired from the active correlation window and was not replaced with new data. This is not an error — nothing was deleted by hand.</p>'+
@@ -2816,11 +2879,13 @@ function renderFindingFailed(findingId,expired){
   }
   const back=$('finding-fail-back');
   if(back)back.addEventListener('click',()=>{backFromFinding();});
+  restoreOperatorState(_op);
 }
 
 function renderFindingDetail(d){
   // P1-2: the finding DTO carries riskScore but no riskLevel, so the meter
   // fill stays neutral and the number speaks for itself — no invented band.
+  const _op=snapOperatorState();
   const riskCls='neutral';
   const conf=(d.confidenceScore!=null)?d.confidenceScore:(d.assessment?.confidence?.score ?? '—');
   const ev=(d.evidence||[]).map((e)=>
@@ -2869,6 +2934,7 @@ function renderFindingDetail(d){
   if(close)close.addEventListener('click',()=>{backFromFinding();});
   const inv=$('finding-open-inv');
   if(inv)inv.addEventListener('click',()=>{openInvestigation(d.correlationKey,{fromFinding:d.findingId});activateSubView('intelligence','investigations');syncIntelTabs();});
+  restoreOperatorState(_op);
 }
 
 function syncIntelTabs(){
@@ -2889,6 +2955,9 @@ function syncIntelTabs(){
 function refreshInvOptions(){
   const sel=$('inv-key');
   if(!sel)return;
+  // Phase 6A: never rebuild the open/focused selector out from under the
+  // operator — a background refresh must not close the dropdown.
+  if(document.activeElement===sel)return;
   const keys=[...new Set(threatFindings.map((f)=>f.correlationKey).filter(Boolean))];
   if(invKey&&!keys.includes(invKey))keys.unshift(invKey);
   sel.innerHTML=keys.length
@@ -2914,13 +2983,14 @@ async function loadInvestigation(key){
     if(res.status===404){el.innerHTML='<div class="intel-contract-notice"><strong>Expired:</strong> no active finding shares this key anymore.</div>';return;}
     const v=await res.json();
     if(meta)meta.textContent=v.findings.length+' finding'+(v.findings.length===1?'':'s');
+    const _op=snapOperatorState();
     const backToFinding=invReturnFinding
       ?'<div style="margin-top:8px;"><button class="btn btn-secondary btn-sm" id="inv-back-finding" type="button">← Back to finding</button></div>':'';
     el.innerHTML=
       '<div class="inv-workspace" style="border:1px solid var(--border);background:var(--surface);">'+
       '<div class="inv-header"><div class="sub" style="margin-bottom:4px;">Threat Findings › Investigation</div><div class="inv-id">Correlation: '+esc(v.correlationKey)+'</div><div class="inv-meta">'+fmtTime(v.firstSeenAt)+' → '+fmtTime(v.lastSeenAt)+' · Affected: '+esc(v.affectedServices.join(', ')||'—')+'</div>'+backToFinding+'<div id="inv-path-slot" style="margin-top:8px;"></div></div>'+
       '<div class="inv-section"><div class="inv-h">Grouped findings ('+v.findings.length+')</div><div class="inv-data">'+
-        v.findings.map((f)=>'<button type="button" data-inv-finding="'+esc(f.findingId)+'" aria-label="Open '+esc(f.severity)+' '+esc(f.category)+' finding detail" style="display:block;width:100%;text-align:left;background:transparent;border:none;border-bottom:1px solid var(--border);border-radius:0;padding:5px 0;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:0;">'+
+        v.findings.map((f)=>'<button type="button" data-inv-finding="'+esc(f.findingId)+'" data-fk="iv-'+esc(f.findingId)+'" aria-label="Open '+esc(f.severity)+' '+esc(f.category)+' finding detail" style="display:block;width:100%;text-align:left;background:transparent;border:none;border-bottom:1px solid var(--border);border-radius:0;padding:5px 0;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:0;">'+
           '<b class="'+sevClass(f.severity)+'">'+esc(f.severity)+'</b> '+esc(f.category).replace(/_/g,' ')+' · risk '+esc(f.riskScore)+' · conf '+esc(f.confidenceScore)+' · '+badge(f.decision)+' '+esc(f.reason).replace(/_/g,' ')+'<br><span class="sub">'+esc(f.findingId)+'</span></button>').join('')+'</div></div>'+
       '<div class="inv-section"><div class="inv-h">Decisions in this correlation</div><div class="inv-data">'+
         v.decisions.map((d)=>'<div style="font-size:11.5px;padding:2px 0;">'+badge(d.decision)+' '+esc(d.reason).replace(/_/g,' ')+' <span class="sub">'+fmtTime(d.at)+'</span></div>').join('')+'</div></div>'+
@@ -2947,6 +3017,7 @@ async function loadInvestigation(key){
       const pb=$('inv-open-paths');
       if(pb)pb.addEventListener('click',()=>{activateSubView('intelligence','paths');syncIntelTabs();});
     }).catch(()=>{});
+    restoreOperatorState(_op);
   }catch(e){console.error(e);}
 }
 
@@ -2960,13 +3031,16 @@ async function loadCategories(){
     const cats=await fetch('/api/threats/categories',{headers:{...keyHeader()}}).then((r)=>r.json());
     const rows=cats.categories||[];
     if(meta)meta.textContent=(cats.totalActiveFindings||0)+' active findings';
+    const _op=snapOperatorState();
     if(!rows.length){
       el.innerHTML='<div class="intel-empty-state"><span class="intel-empty-icon" aria-hidden="true">▦</span><h3 class="intel-state-title">No category data</h3><p class="intel-state-body">Exposure appears here once findings are correlated. Run the Attack Simulator or wait for live traffic — nothing is inferred from risk scores.</p></div>';
+      restoreOperatorState(_op);
       return;
     }
     el.innerHTML='<div class="table-container"><table><thead><tr><th>Category</th><th>Findings</th><th>Exposure*</th><th>Highest severity</th><th>Highest conf.</th></tr></thead><tbody>'+
       rows.map((c)=>'<tr><td><b>'+esc(c.category).replace(/_/g,' ')+'</b></td><td>'+esc(c.findingCount)+'</td><td>'+esc(c.exposureScore)+'</td><td><b class="'+sevClass(c.maxSeverity)+'">'+esc(c.maxSeverity)+'</b></td><td>'+esc(c.maxConfidence)+'</td></tr>').join('')+
       '</tbody></table></div><div class="intel-contract-notice"><strong>*Exposure</strong> is explanatory concentration of correlated factor points — it is not summed into pipeline risk. Per-finding risk remains visible in Threat Findings.</div>';
+    restoreOperatorState(_op);
   }catch(e){console.error(e);}
 }
 
@@ -2977,8 +3051,10 @@ async function loadAttackPaths(){
     const body=await fetch('/api/threats/attack-paths',{headers:{...keyHeader()}}).then((r)=>r.json());
     const paths=body.paths||[];
     if(meta)meta.textContent=paths.length+' path'+(paths.length===1?'':'s')+' · '+body.totalActiveFindings+' active findings';
+    const _op=snapOperatorState();
     if(!paths.length){
       el.innerHTML='<div class="intel-empty-state"><span class="intel-empty-icon" aria-hidden="true">→</span><h3 class="intel-state-title">'+(body.totalActiveFindings?'No reconstructed paths':'No attack path data')+'</h3><p class="intel-state-body">'+(body.totalActiveFindings?'Findings are active but none chain into a multi-hop path yet. Paths are only shown when the correlator reconstructs them (e.g. lateral movement).':'Path reconstruction chains correlated findings into multi-hop sequences. Run the Attack Simulator — the lateral-movement scenario produces a real one.')+'</p><div class="intel-contract-notice"><strong>Note:</strong> Approved relationships are in Zero-Trust Mesh → Service Map. No topology is inferred beyond observed evidence.</div></div>';
+      restoreOperatorState(_op);
       return;
     }
     el.innerHTML=paths.map((p)=>'<div class="inv-workspace" style="border:1px solid var(--border);background:var(--surface);margin-bottom:12px;">'+
@@ -2989,6 +3065,7 @@ async function loadAttackPaths(){
       if(b.dataset.ckey){openInvestigation(b.dataset.ckey,{fromFinding:null});activateSubView('intelligence','investigations');syncIntelTabs();}
       else{openFinding(b.dataset.finding,{returnTo:{kind:'paths'}});activateSubView('intelligence','findings');syncIntelTabs();}
     }));
+    restoreOperatorState(_op);
   }catch(e){console.error(e);}
 }
 
@@ -3014,16 +3091,18 @@ function onThreatFinding(summary){
     threatFindings=[summary,...threatFindings].slice(0,100);
     threatTotal++;
   }
-  refreshThreatBadge();
-  loadThreatStrip();
+  // Phase 6A: one shared summary fetch (badge + strip); the attention
+  // queue is a cheap local rebuild. Heavy tab reloads below are coalesced
+  // and never navigate, refilter, resort, or reselect.
+  refreshThreatSummary();
   renderAttentionQueue();
   const panel=document.querySelector('[data-view-panel="intelligence"]');
   if(!panel||!panel.classList.contains('active'))return;
   const sub=activeSubViews.intelligence;
   if(sub==='findings'){renderFindings();refreshInvOptions();if(selectedFindingId===summary.findingId)openFinding(selectedFindingId);}
-  else if(sub==='investigations'&&summary.correlationKey===invKey)loadInvestigation(invKey);
-  else if(sub==='categories')loadCategories();
-  else if(sub==='paths')loadAttackPaths();
+  else if(sub==='investigations'&&summary.correlationKey===invKey)coalesceRefresh('inv',()=>loadInvestigation(invKey),4000);
+  else if(sub==='categories')coalesceRefresh('cats',loadCategories,4000);
+  else if(sub==='paths')coalesceRefresh('paths',loadAttackPaths,4000);
 }
 
 /* =====================================================

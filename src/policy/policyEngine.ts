@@ -137,6 +137,12 @@ export class PolicyEngine {
     return this.workflows.some((wf) => path.length <= wf.length && path.every((svc, i) => wf[i] === svc));
   }
 
+  /**
+   * Caller contract: `path` must already be canonical (see canonicalizePath).
+   * The engine deliberately does NOT normalize here — a second, competing
+   * normalization inside authorization is exactly how auth/forward pairs
+   * diverge. The pipeline canonicalizes once and forwards the same string.
+   */
   evaluate(source: string, destination: string, method: string, path: string): PolicyDecision {
     const candidates = this.byPair.get(`${source}->${destination}`);
     if (!candidates || candidates.length === 0) {

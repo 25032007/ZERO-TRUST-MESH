@@ -35,9 +35,9 @@ import { levelFor, type RiskEngine } from '../risk/riskEngine.js';
 import type { QuarantineService } from '../security/quarantine.js';
 import type { RateLimiter } from '../security/rateLimiter.js';
 import type { TokenVerifier } from '../token/tokenVerifier.js';
+import { canonicalizePath } from '../policy/paths.js';
 import type { ThreatIntelligence } from '../threat/threatIntelligence.js';
 import type { ThreatObservationContext } from '../threat/normalizer.js';
-import { isSafePath } from '../policy/paths.js';
 import { toSummary as toThreatSummary } from '../threat/presenter.js';
 import type { Decision, PipelineInput, PipelineResult, RiskFactor, StageTrace } from '../types.js';
 
@@ -82,6 +82,13 @@ export class SecurityPipeline {
     const startedAt = performance.now();
     const now = this.d.clock();
     const cfg = this.d.config;
+    // Canonicalize ONCE, up front. Every stage below — policy matching, risk
+    // scoring, audit, and forwarding via result.path — operates on this exact
+    // string, so alternate representations (duplicate slashes,
+    // percent-encoding) authorize one thing and forward another never again.
+    // Case is preserved: Express, fetch, and policy matching are all
+    // case-sensitive, so case variants stay distinct and fail closed.
+    const canonicalPath = canonicalizePath(input.path);
     const stages: StageTrace[] = [];
     /** Filled in by stage 4 when dry-run mode lets a policy denial through. */
     let dryRunViolation: PipelineResult['dryRunViolation'];
@@ -100,7 +107,10 @@ export class SecurityPipeline {
         source: v.source,
         destination: input.destination,
         method: input.method,
-        path: input.path,
+        // Canonical when authorized (this exact string is forwarded); raw
+        // only for INVALID_PATH records, where the audit keeps the attacker's
+        // original string as evidence. Rejected paths are never forwarded.
+        path: canonicalPath ?? input.path,
         factors: v.factors ?? [],
         stages,
         mfaSatisfied: v.mfaSatisfied ?? false,
@@ -146,12 +156,16 @@ export class SecurityPipeline {
 
     // ── 0. PATH SAFETY (before anything else, including rate limiting) ────
     // The policy engine authorizes a path string while the HTTP client
-    // normalizes dot-segments/encoding when forwarding. Any path whose meaning
-    // could change under that normalization is rejected here, so the exact
-    // string that passes authorization is also the exact string forwarded.
-    if (!isSafePath(input.path)) {
+    // normalizes dot-segments/encoding when forwarding. Any path with no
+    // deterministic canonical form is rejected here; everything downstream
+    // uses `path` (the canonical form), so the exact string that passes
+    // authorization is also the exact string forwarded.
+    if (canonicalPath === null) {
       return hardFail('path_validation', 'INVALID_PATH', 400, `Unsafe request path rejected before authorization`);
     }
+    // From here on, only the canonical representation exists. (Declared here
+    // rather than up top so the stage-0 rejection above reads in order.)
+    const path: string = canonicalPath;
 
     // ── 1. RATE LIMIT (per IP, before we spend CPU on crypto) ──────────────
     if (!this.d.ipLimiter.hit(`ip:${input.ip}`)) {
@@ -192,10 +206,10 @@ export class SecurityPipeline {
     if (!input.destination) {
       return hardFail('authorization', 'MISSING_DESTINATION', 400, 'X-Destination-Service header is required', source);
     }
-    const policy = this.d.policies.evaluate(source, input.destination, input.method, input.path);
+    const policy = this.d.policies.evaluate(source, input.destination, input.method, path);
     if (!policy.allowed) this.d.usage.recordDenied(source, input.destination, policy.reason, now);
     if (!policy.allowed && !policy.dryRun) {
-      return hardFail('authorization', policy.reason, 403, `${source} → ${input.destination} ${input.method} ${input.path}: ${policy.reason}`, source);
+      return hardFail('authorization', policy.reason, 403, `${source} → ${input.destination} ${input.method} ${path}: ${policy.reason}`, source);
     }
     if (!policy.allowed) {
       // DRY-RUN: the policy says "deny", but we are only observing. Record what
@@ -205,7 +219,7 @@ export class SecurityPipeline {
       stages.push({ stage: 'authorization', outcome: 'flag', detail: `DRY-RUN: would block (${policy.reason}${policy.policyId ? ` by ${policy.policyId}` : ''}) — allowed through` });
     } else {
       stages.push({ stage: 'authorization', outcome: 'pass', detail: `allowed by policy ${policy.policyId}` });
-      this.d.usage.recordAllowed(policy.policyId!, input.method, input.path, this.d.policies.get(policy.policyId!)?.allowPaths, now);
+      this.d.usage.recordAllowed(policy.policyId!, input.method, path, this.d.policies.get(policy.policyId!)?.allowPaths, now);
     }
 
     // ── 5. PAYLOAD ANOMALY ─────────────────────────────────────────────────
@@ -235,7 +249,7 @@ export class SecurityPipeline {
       source,
       destination: input.destination,
       method: input.method,
-      path: input.path,
+      path,
       ip: input.ip,
       now,
       anomaly,

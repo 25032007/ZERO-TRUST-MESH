@@ -162,6 +162,51 @@ test('encoded traversal and separators are rejected over HTTP', async () => {
   }
 });
 
+test('duplicate slash still serves legitimate traffic end to end', async () => {
+  // /orders//list canonicalizes to /orders/list: authorized AND forwarded
+  // as the same string, so real downstream data comes back.
+  const token = await app.clients.get('frontend-service')!.signToken();
+  const r = await rawProxy('orders-service', '/orders//list', token);
+  assert.equal(r.status, 200);
+  assert.equal(r.headers['x-zt-decision'], 'ALLOW');
+  assert.ok(r.body.includes('ORD-1001'), 'forwarded canonical path must reach the backend');
+});
+
+test('duplicate slash cannot dodge a deny prefix over HTTP', async () => {
+  const token = await app.clients.get('payments-service')!.signToken();
+  const r = await rawProxy('database-service', '/database//admin/users', token);
+  assert.equal(r.status, 403);
+  assert.equal(r.headers['x-zt-decision'], 'BLOCK');
+  assert.equal(r.headers['x-zt-reason'], 'PATH_DENIED');
+  assert.ok(!r.body.includes('sensitive row'), 'downstream database content must not leak');
+});
+
+test('percent-encoded path cannot dodge a deny prefix over HTTP', async () => {
+  const token = await app.clients.get('payments-service')!.signToken();
+  const r = await rawProxy('database-service', '/database/%61dmin/users', token);
+  assert.equal(r.status, 403);
+  assert.equal(r.headers['x-zt-decision'], 'BLOCK');
+  assert.equal(r.headers['x-zt-reason'], 'PATH_DENIED');
+  assert.ok(!r.body.includes('sensitive row'), 'downstream database content must not leak');
+});
+
+test('path case is preserved end to end (no case folding)', async () => {
+  const token = await app.clients.get('frontend-service')!.signToken();
+  const r = await rawProxy('orders-service', '/ORDERS/list', token);
+  assert.equal(r.status, 403);
+  assert.equal(r.headers['x-zt-decision'], 'BLOCK');
+  assert.equal(r.headers['x-zt-reason'], 'PATH_NOT_ALLOWED');
+});
+
+test('double-encoded paths fail closed over HTTP', async () => {
+  const token = await app.clients.get('payments-service')!.signToken();
+  for (const p of ['/database/%2561dmin', '/foo/%252e%252e/bar']) {
+    const r = await rawProxy('database-service', p, token);
+    assert.equal(r.status, 400, p);
+    assert.equal(r.headers['x-zt-reason'], 'INVALID_PATH', p);
+  }
+});
+
 test('private dashboard mode hides data without the admin key and hides internals from attackers', async () => {
   const priv = await createApp(loadConfig({ ADMIN_API_KEY: 'k', PUBLIC_DASHBOARD: 'false', PORT: '0' }));
   const p = await priv.listen(0);

@@ -28,6 +28,9 @@ const FACTOR_MAPPINGS: Record<string, Mapping> = {
   ELEVATED_FREQUENCY: { type: 'RATE_SPIKE', role: 'threat_signal', primaryCategory: 'BEHAVIORAL_ANOMALY', kind: 'rate', reliability: 'deterministic' },
   ABNORMAL_FREQUENCY: { type: 'RATE_SPIKE', role: 'threat_signal', primaryCategory: 'BEHAVIORAL_ANOMALY', kind: 'rate', reliability: 'deterministic' },
   RECENT_AUTH_FAILURES: { type: 'RECENT_AUTH_FAILURES', role: 'threat_signal', primaryCategory: 'AUTHENTICATION_TOKEN_ABUSE', kind: 'authentication', reliability: 'contextual' },
+  // Default 'deterministic' covers pure size/depth rule hits; a factor that
+  // carries z-evidence is re-labeled 'statistical' at construction below, so
+  // a statistical z-score is never presented as a deterministic rule.
   PAYLOAD_ANOMALY: { type: 'PAYLOAD_ANOMALY', role: 'threat_signal', primaryCategory: 'REQUEST_PAYLOAD_ABUSE', secondaryCategories: ['BEHAVIORAL_ANOMALY'], kind: 'payload', reliability: 'deterministic' },
   LATERAL_MOVEMENT: { type: 'LATERAL_MOVEMENT', role: 'threat_signal', primaryCategory: 'LATERAL_MOVEMENT', secondaryCategories: ['SERVICE_GRAPH_ANOMALY'], kind: 'trace', reliability: 'deterministic' },
 };
@@ -77,11 +80,22 @@ export function normalizePipelineResult(result: PipelineResult, context: ThreatO
     const suffix = `${mapping.type}:${index}`;
     const evidenceId = `${result.requestId}:evidence:${suffix}`;
     const signalId = `${result.requestId}:signal:${suffix}`;
+    // Detector metadata travels verbatim from the producer's factor into
+    // evidence facts — never recomputed or defaulted here. Absent when the
+    // check involved no statistics (then there is nothing truthful to write).
     const facts: EvidenceFacts = factor
       ? factor.code === 'LATERAL_MOVEMENT' && context.lateral
         ? { factorCode: factor.code, points: factor.points, detail: factor.detail, path: context.lateral.path, distinctHops: context.lateral.hops, declaredWorkflow: context.lateral.knownWorkflow }
-        : { factorCode: factor.code, points: factor.points, detail: factor.detail }
+        : {
+            factorCode: factor.code, points: factor.points, detail: factor.detail,
+            ...(factor.meta?.z !== undefined ? { z: factor.meta.z } : {}),
+            ...(factor.meta?.warm !== undefined ? { warm: factor.meta.warm } : {}),
+          }
       : { reason: result.reason, method: result.method, path: result.path, dryRun: !!dryRun };
+    // A factor carrying z-evidence is statistical no matter what the static
+    // mapping says: the mapping describes the default case, the evidence
+    // describes this observation.
+    const reliability: EvidenceReliability = factor?.meta?.z !== undefined ? 'statistical' : mapping.reliability;
     const item: Evidence = {
       evidenceId,
       kind: mapping.kind,
@@ -92,7 +106,7 @@ export function normalizePipelineResult(result: PipelineResult, context: ThreatO
       traceId: result.traceId,
       detector: DETECTOR,
       facts,
-      reliability: mapping.reliability,
+      reliability,
       completeness: result.source || result.destination ? 'complete' : 'partial',
     };
     const contributionId = factor ? `${result.requestId}:factor:${factor.code}:${index}` : undefined;

@@ -30,6 +30,13 @@ export interface RiskFactor {
   points: number;
   /** Human-readable explanation shown in the dashboard. */
   detail: string;
+  /**
+   * Optional detector metadata carried verbatim into threat evidence
+   * (statistical z-score, baseline warmth). Copies of the producer's own
+   * values only — scoring uses code/points/detail alone, so this can never
+   * change a verdict. Absent when the check involved no statistics.
+   */
+  meta?: { z?: number; warm?: boolean };
 }
 
 /**

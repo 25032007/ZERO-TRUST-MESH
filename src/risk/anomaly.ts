@@ -14,6 +14,13 @@ import type { MeshConfig } from '../config.js';
 export interface AnomalyResult {
   points: number;
   findings: string[];
+  /**
+   * Set ONLY when the statistical z-score check fires. `warm` is the gate
+   * condition itself (enough baseline history to trust the distribution),
+   * written here at the producer so threat evidence never has to guess it.
+   * Pure size/depth hits leave this undefined: no statistics involved.
+   */
+  zScore?: { value: number; warm: boolean };
 }
 
 /** Running mean/variance (Welford). */
@@ -82,12 +89,16 @@ export class AnomalyEngine {
       base = new Welford();
       this.baselines.set(key, base);
     }
+    // The z check only runs past the history gate, so a fired z-score is
+    // warm by construction — recorded explicitly (not defaulted) for evidence.
+    let zScore: AnomalyResult['zScore'];
     if (base.n >= this.cfg.minSamples) {
       // Floor the std-dev at 1 byte so a perfectly constant history doesn't divide by ~0.
       const z = (bytes - base.mean) / Math.max(base.std, 1);
       if (z > this.cfg.zScoreLimit) {
         points += this.cfg.zScorePoints;
         findings.push(`payload size z-score ${z.toFixed(1)} (typical ≈ ${Math.round(base.mean)} bytes)`);
+        zScore = { value: z, warm: base.n >= this.cfg.minSamples };
       }
     }
 
@@ -95,6 +106,6 @@ export class AnomalyEngine {
     // slowly "teach" the baseline that huge payloads are normal (baseline poisoning).
     if (findings.length === 0) base.add(bytes);
 
-    return { points: Math.min(points, this.cfg.maxPoints), findings };
+    return { points: Math.min(points, this.cfg.maxPoints), findings, ...(zScore ? { zScore } : {}) };
   }
 }

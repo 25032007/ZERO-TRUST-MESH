@@ -121,6 +121,8 @@ export class RiskEngine {
           code: 'RATE_SPIKE',
           points: r.level === 'high' ? pts.rateSpikeHigh : pts.rateSpikeElevated,
           detail: `${r.count} requests in ${this.cfg.baseline.windowMs / 1000}s vs normal ${r.mean.toFixed(1)}±${r.std.toFixed(1)} on ${pair} (z=${r.z.toFixed(1)})`,
+          // The producer's own z/warm, copied verbatim for threat evidence.
+          meta: { z: r.z, warm: r.warm },
         });
       }
     } else {
@@ -138,9 +140,17 @@ export class RiskEngine {
       }
     }
 
-    // 5. Odd-looking body?
+    // 5. Odd-looking body? The z/warm pair travels with the factor only when
+    // the statistical check actually fired; pure size/depth hits carry no
+    // statistics, so their evidence stays deterministic. Points/detail — and
+    // therefore the score — are identical either way.
     if (input.anomaly.points > 0) {
-      factors.push({ code: 'PAYLOAD_ANOMALY', points: input.anomaly.points, detail: input.anomaly.findings.join('; ') });
+      factors.push({
+        code: 'PAYLOAD_ANOMALY',
+        points: input.anomaly.points,
+        detail: input.anomaly.findings.join('; '),
+        ...(input.anomaly.zScore ? { meta: { z: input.anomaly.zScore.value, warm: input.anomaly.zScore.warm } } : {}),
+      });
     }
 
     // 6. Has this IP recently failed authentication? (keyed by IP, NOT by the

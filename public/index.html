@@ -899,8 +899,8 @@ body{
    Outlined and muted so a suggestion can never read as an enforcement. */
 .rec-chip{display:inline-flex;align-items:center;padding:2px 6px;border-radius:3px;
   font-size:9px;font-weight:700;line-height:1.4;text-transform:uppercase;letter-spacing:.5px;
-  white-space:nowrap;color:var(--text-secondary);border:1px solid var(--border);
-  background:transparent;}
+  color:var(--text-secondary);border:1px solid var(--border);
+  background:transparent;overflow-wrap:break-word;}
 .risk-meter-value{font:700 11px var(--mono);white-space:nowrap;}
 .intel-state-title{margin:0 0 6px;font-size:13px;font-weight:700;color:var(--text-primary);}
 .intel-state-body{margin:0 0 12px;color:var(--text-secondary);font-size:12px;line-height:1.55;max-width:600px;}
@@ -1038,14 +1038,18 @@ body{
    RECOMMENDATIONS
    ===================================================== */
 .recs-table{background:var(--surface);border:1px solid var(--border);overflow:hidden;}
-.recs-header-row{display:grid;grid-template-columns:86px 1fr;padding:8px 15px;background:var(--table-header-bg);border-bottom:1px solid var(--border);}
-.recs-header-cell{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-secondary);}
-.rec-row{display:grid;grid-template-columns:86px 1fr;padding:10px 15px;border-bottom:1px solid var(--border);align-items:start;transition:background 0.1s;}
+.recs-header-row{display:grid;grid-template-columns:minmax(104px,168px) minmax(0,1fr);padding:8px 15px;background:var(--table-header-bg);border-bottom:1px solid var(--border);}
+.recs-header-cell{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-secondary);min-width:0;}
+.rec-row{display:grid;grid-template-columns:minmax(104px,168px) minmax(0,1fr);padding:10px 15px;border-bottom:1px solid var(--border);align-items:start;transition:background 0.1s;}
 .rec-row:last-child{border-bottom:none;}
 .rec-row:hover{background:var(--surface-elevated);}
-.rec-type-cell{padding-right:10px;padding-top:1px;}
-.rec-finding{color:var(--text-primary);font-size:12.5px;line-height:1.45;}
+.rec-type-cell{padding-right:10px;padding-top:1px;min-width:0;}
+.rec-finding{color:var(--text-primary);font-size:12.5px;line-height:1.45;min-width:0;overflow-wrap:break-word;}
 .recs-empty{padding:24px 15px;text-align:center;color:var(--muted);font-size:12px;line-height:1.5;}
+/* Dashboard mini-recs: same wrapping guarantees in the compact flex rows. */
+.rec-mini-row{display:flex;flex-direction:column;gap:6px;align-items:stretch;padding:9px 16px;border-bottom:1px solid var(--border);}
+.rec-mini-row>.rec-chip{flex-shrink:0;align-self:flex-start;}
+.rec-mini-msg{font-size:11.5px;color:var(--text-primary);line-height:1.45;min-width:0;flex:1;overflow-wrap:break-word;}
 
 /* =====================================================
    TABLES
@@ -1129,8 +1133,9 @@ code{
 .finding-row.sev-M{border-left-color:var(--warning);}
 .finding-row.sev-H{border-left-color:var(--high-risk);}
 .finding-row.sev-C{border-left-color:var(--block);}
-.finding-main{font:600 11.5px var(--mono);color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.finding-sub{font-size:10.5px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.finding-row>span{min-width:0;}
+.finding-main{display:block;font:600 11.5px/1.5 var(--mono);color:var(--text-primary);overflow-wrap:anywhere;}
+.finding-sub{display:block;font-size:10.5px;line-height:1.5;color:var(--text-secondary);overflow-wrap:anywhere;margin-top:1px;}
 /* Phase 6B: live new/updated markers. Restrained dot + label treatment —
    triage aid only. NEW means "surfaced in this session", never higher risk. */
 .mk{display:inline-block;font:700 8.5px var(--mono);letter-spacing:.6px;text-transform:uppercase;
@@ -1272,6 +1277,8 @@ button:focus-visible{outline:1px solid var(--sidebar-active-text);outline-offset
   .status-bar{padding:0 12px;font-size:10.5px;}
   .page-masthead{display:block;}
   .page-title{font-size:18px;}
+  .recs-header-row,.rec-row{grid-template-columns:1fr;row-gap:6px;}
+  .rec-type-cell{padding-right:0;padding-top:0;}
 }
 </style>
 </head>
@@ -2491,9 +2498,9 @@ async function refreshMetrics(){
       if(overviewRecs){
         if(recs.recommendations&&recs.recommendations.length>0){
           overviewRecs.innerHTML=recs.recommendations.slice(0,4).map((r)=>
-            '<div style="display:flex;gap:8px;align-items:flex-start;padding:9px 16px;border-bottom:1px solid var(--border);">'+
+            '<div class="rec-mini-row">'+
               recChip(r.type)+
-              '<span style="font-size:11.5px;color:var(--text-primary);line-height:1.45;">'+esc(r.message)+'</span>'+
+              '<span class="rec-mini-msg">'+esc(r.message)+'</span>'+
             '</div>'
           ).join('')+
           (recs.recommendations.length>4?'<div style="padding:8px 16px;font-size:11px;color:var(--muted);">+' +(recs.recommendations.length-4)+' more &rarr; Response &gt; Recommendations</div>':'');

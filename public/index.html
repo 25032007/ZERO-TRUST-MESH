@@ -781,8 +781,13 @@ body{
 .event-reason{font-weight:700;color:var(--text-primary);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .event-path{font-family:var(--mono);font-size:10.5px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .risk-score{font-size:11px;font-weight:700;white-space:nowrap;font-family:var(--mono);}
-.risk-high{color:var(--block);}
-.risk-medium{color:var(--warning);}
+/* P1-2: risk colors follow ONLY the authoritative backend riskLevel
+   (CRITICAL≥80 · HIGH≥60 · MEDIUM≥30 · LOW). No frontend bands. */
+.risk-lvl-CRITICAL{color:var(--block);}
+.risk-lvl-HIGH{color:var(--high-risk);}
+.risk-lvl-MEDIUM{color:var(--warning);}
+.risk-lvl-LOW{color:var(--allow);}
+.risk-neutral{color:var(--text-secondary);}
 
 /* Investigation panel */
 .investigation-panel{
@@ -914,8 +919,17 @@ body{
 .risk-meter{display:flex;align-items:center;gap:8px;min-width:0;}
 .risk-meter-track{flex:1;height:5px;border-radius:3px;background:var(--code-bg);overflow:hidden;min-width:40px;}
 .risk-meter-fill{display:block;height:100%;background:var(--allow);}
-.risk-meter-fill.elevated{background:var(--warning);}
-.risk-meter-fill.critical{background:var(--block);}
+.risk-meter-fill.lvl-CRITICAL{background:var(--block);}
+.risk-meter-fill.lvl-HIGH{background:var(--high-risk);}
+.risk-meter-fill.lvl-MEDIUM{background:var(--warning);}
+.risk-meter-fill.lvl-LOW{background:var(--allow);}
+.risk-meter-fill.neutral{background:var(--text-secondary);}
+/* P1-1: advisory recommendation chip — deliberately NOT a decision badge.
+   Outlined and muted so a suggestion can never read as an enforcement. */
+.rec-chip{display:inline-flex;align-items:center;padding:2px 6px;border-radius:3px;
+  font-size:9px;font-weight:700;line-height:1.4;text-transform:uppercase;letter-spacing:.5px;
+  white-space:nowrap;color:var(--text-secondary);border:1px solid var(--border);
+  background:transparent;}
 .risk-meter-value{font:700 11px var(--mono);white-space:nowrap;}
 .intel-state-title{margin:0 0 6px;font-size:13px;font-weight:700;color:var(--text-primary);}
 .intel-state-body{margin:0 0 12px;color:var(--text-secondary);font-size:12px;line-height:1.55;max-width:600px;}
@@ -992,6 +1006,14 @@ body{
 .mesh-stat:last-child{border-right:none;}
 .mesh-stat-value{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text-primary);}
 .mesh-stat-label{font:700 9.5px var(--mono);letter-spacing:.5px;text-transform:uppercase;color:var(--muted);}
+/* P1-5: Service Map shows relationships (grouped from the same policy
+   payload), not a second copy of the Controls policy table. */
+.rel-row{display:flex;gap:12px;align-items:baseline;padding:9px 15px;border-bottom:1px solid var(--border);}
+.rel-row:last-child{border-bottom:none;}
+.rel-src{font:700 11.5px var(--mono);color:var(--text-primary);min-width:140px;flex-shrink:0;}
+.rel-dests{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-width:0;}
+.rel-hop{font:600 11px var(--mono);color:var(--text-primary);background:var(--code-bg);
+  border:1px solid var(--code-border);border-radius:3px;padding:2px 7px;white-space:nowrap;}
 
 /* =====================================================
    SECURITY CONTROLS — SEPARATE SUB-VIEWS
@@ -1700,12 +1722,11 @@ button:focus-visible{outline:1px solid var(--sidebar-active-text);outline-offset
         </div>
         <section class="section">
           <div class="section-header">
-            <h2 class="section-h">Service relationship controls <span class="section-badge">Default Deny</span></h2>
+            <h2 class="section-h">Service relationships <span class="section-badge">Default Deny</span></h2>
+            <span class="section-meta">Topology view — policy editing lives in Controls</span>
           </div>
-          <div class="table-container">
-            <table id="policies"><tbody><tr><td style="color:var(--muted);font-size:12px;padding:16px;">Loading policy data…</td></tr></tbody></table>
-          </div>
-          <div class="security-statement">🔒 <strong>DEFAULT-DENY</strong> · Any service pair not explicitly listed above is blocked regardless of authentication.</div>
+          <div class="table-container" id="mesh-rels"><div style="color:var(--muted);font-size:12px;padding:16px;">Loading relationship data…</div></div>
+          <div class="security-statement">🔒 <strong>DEFAULT-DENY</strong> · Only the relationships below are approved; anything unlisted is blocked regardless of authentication.</div>
         </section>
       </div>
 
@@ -1848,6 +1869,14 @@ const badge=(decision)=>{
   const cls='bg-'+decision;
   return '<span class="badge '+cls+'">'+esc(decision).replace(/_/g,' ')+'</span>';
 };
+// P1-1: advisory recommendation chip. Backend `type` text is preserved
+// verbatim; only the visual treatment changes so guidance never wears
+// decision colors.
+const recChip=(type)=>'<span class="rec-chip" title="Advisory recommendation — does not enforce">Recommendation · '+esc(type).replace(/_/g,' ')+'</span>';
+// P1-2: color ONLY from the authoritative backend riskLevel. Unknown or
+// absent level falls back to neutral — never to an invented band.
+const riskLevelClass=(level)=>['CRITICAL','HIGH','MEDIUM','LOW'].includes(level)?'risk-lvl-'+level:'risk-neutral';
+const meterFillClass=(level)=>['CRITICAL','HIGH','MEDIUM','LOW'].includes(level)?'lvl-'+level:'neutral';
 
 /* =====================================================
    NAVIGATION — sub-view aware routing
@@ -2013,7 +2042,7 @@ function renderFeed(){
       '<div>'+badge(r.decision)+'</div>'+
       '<div class="event-service" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><span style="color:var(--text-primary);font-weight:600;">'+esc(r.source||'Unknown')+'</span> <span class="event-arrow">→</span> <span style="color:var(--text-primary);font-weight:600;">'+esc(r.destination||'Unknown')+'</span></div>'+
       '<div class="event-path" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="'+esc(r.reason+factorNote)+'"><span style="color:var(--text-primary);font-weight:700;margin-right:6px;">'+esc(r.reason)+'</span><span style="color:var(--text-secondary);">'+esc(r.method)+' '+esc(r.path)+'</span>'+(factorCount?'<span style="color:var(--muted);"> · '+factorCount+'f</span>':'')+'</div>'+
-      '<div class="event-col-risk">'+(r.riskScore>0?'<span class="risk-score '+(r.riskScore>=50?'risk-high':'risk-medium')+'">'+esc(r.riskScore)+'</span>':'<span class="risk-score" style="color:var(--muted);">0</span>')+'</div>';
+      '<div class="event-col-risk">'+(r.riskScore>0?'<span class="risk-score '+riskLevelClass(r.riskLevel)+'" title="Risk level '+esc(r.riskLevel||'unknown')+' (authoritative)">'+esc(r.riskScore)+'</span>':'<span class="risk-score" style="color:var(--muted);">0</span>')+'</div>';
     row.addEventListener('click',()=>selectDecision(r.requestId));
     feed.appendChild(row);
   });
@@ -2049,26 +2078,50 @@ function renderOverviewTimeline(){
   renderAttentionQueue();
 }
 
-// Attention Queue: highest-risk non-ALLOW session decisions first (display only, verdicts stay authoritative)
+// P1-6: threat-aware triage shortlist. Active findings (existing severity
+// display order, no new scoring) come first with deep links; session
+// decisions follow. Without loaded threat data the queue keeps today's
+// conservative session-only behavior.
 function renderAttentionQueue(){
   const el=$('attention-queue');
   if(!el)return;
-  const flagged=liveDecisions.filter((r)=>r.decision&&r.decision!=='ALLOW').slice(0,5);
+  const topFindings=(threatLoaded&&threatFindings.length)
+    ?threatFindings.slice().sort((a,b)=>(SEV_ORDER[b.severity]||0)-(SEV_ORDER[a.severity]||0)||(b.lastSeenAt||0)-(a.lastSeenAt||0)).slice(0,3)
+    :[];
+  const flagged=liveDecisions.filter((r)=>r.decision&&r.decision!=='ALLOW').slice(0,topFindings.length?3:5);
   const meta=$('attention-meta');
-  if(meta)meta.textContent=flagged.length?flagged.length+' FLAGGED THIS SESSION':'SESSION TRIAGE';
-  if(!flagged.length){
+  if(meta){
+    const parts=[];
+    if(topFindings.length)parts.push(topFindings.length+' FINDING'+(topFindings.length===1?'':'S'));
+    if(flagged.length)parts.push(flagged.length+' FLAGGED');
+    meta.textContent=parts.length?parts.join(' · '):'SESSION TRIAGE';
+  }
+  if(!topFindings.length&&!flagged.length){
     const anyCount=liveDecisions.length;
     el.innerHTML='<div style="padding:16px;"><div class="attention-empty">'+
       '<div class="attention-mark" aria-hidden="true">i</div><div>'+
       '<p class="attention-empty-title">'+(anyCount?'All session traffic allowed':'Nothing needs review')+'</p>'+
       '<p class="attention-empty-body">'+(anyCount
-        ?anyCount+' session decision'+(anyCount===1?'':'s')+' observed, all ALLOW. Blocked, step-up, and monitored decisions will surface here, highest risk first.'
-        :'Blocked, step-up, and monitored decisions from this session will surface here, highest risk first. Correlated threat findings live in Threat Intelligence.')+'</p>'+
+        ?anyCount+' session decision'+(anyCount===1?'':'s')+' observed, all ALLOW. Correlated findings and flagged decisions will surface here when they appear.'
+        :'Correlated threat findings and flagged session decisions will surface here, highest severity first. Findings live in Threat Intelligence.')+'</p>'+
       '<div class="data-boundary">Authoritative pipeline activity remains available in Live Operations</div>'+
       '</div></div></div>';
     return;
   }
   el.innerHTML='';
+  topFindings.forEach((f)=>{
+    const b=document.createElement('button');
+    b.type='button';
+    b.className='attention-row attn-'+(f.severity==='CRITICAL'||f.severity==='HIGH'?'block':'monitor');
+    b.setAttribute('aria-label','Open '+f.severity+' '+f.category+' finding, risk '+(f.riskScore||0));
+    b.innerHTML=
+      '<span><span class="attention-route"><b class="'+sevClass(f.severity)+'" style="font-size:10.5px;">'+esc(f.severity)+'</b> '+esc(f.category).replace(/_/g,' ')+'</span><br>'+
+      '<span class="attention-reason">'+esc(f.reason).replace(/_/g,' ')+' · '+esc(f.source||'?')+' → '+esc(f.destination||'?')+'</span></span>'+
+      '<span><span class="attention-risk '+riskLevelClass(f.riskLevel)+'">'+esc(f.riskScore||0)+'</span><br>'+
+      '<span class="attention-inspect">Finding →</span></span>';
+    b.addEventListener('click',()=>inspectFinding(f.findingId,{returnTo:null}));
+    el.appendChild(b);
+  });
   flagged
     .slice()
     .sort((a,b)=>(b.riskScore||0)-(a.riskScore||0))
@@ -2132,8 +2185,7 @@ function selectDecision(requestId){
     ?'<div class="factor-list" style="margin-bottom:8px;">'+factors.map((factor)=>'<span class="factor-chip" title="'+esc(factor.detail)+'">'+esc(factor.code)+' +'+esc(factor.points)+'</span>').join('')+'</div>'+
      '<div style="display:flex;flex-direction:column;gap:4px;">'+factors.map((factor)=>'<div style="font-size:11px;color:var(--text-secondary);line-height:1.45;"><code>'+esc(factor.code)+'</code> <b style="color:var(--text-primary);">+'+esc(factor.points)+'</b> — '+esc(factor.detail)+'</div>').join('')+'</div>'
     :'<span class="sub">No soft-risk factors recorded for this decision. Hard-failure verdicts (e.g. bad signature, replay, no policy) carry a fixed severity instead of factor points.</span>';
-  const riskCls=(r.riskScore||0)>=50?'critical':((r.riskScore||0)>0?'elevated':'');
-  const riskBar='<div class="risk-meter" role="img" aria-label="Authoritative risk '+(r.riskScore||0)+' of 100, level '+(r.riskLevel||'unknown')+'"><div class="risk-meter-track"><span class="risk-meter-fill '+riskCls+'" style="width:'+Math.max(0,Math.min(100,r.riskScore||0))+'%"></span></div><span class="risk-meter-value">'+esc(r.riskScore||0)+'/100 · '+esc(r.riskLevel||'—')+'</span></div>';
+  const riskBar='<div class="risk-meter" role="img" aria-label="Authoritative risk '+(r.riskScore||0)+' of 100, level '+(r.riskLevel||'unknown')+'"><div class="risk-meter-track"><span class="risk-meter-fill '+meterFillClass(r.riskLevel)+'" style="width:'+Math.max(0,Math.min(100,r.riskScore||0))+'%"></span></div><span class="risk-meter-value">'+esc(r.riskScore||0)+'/100 · '+esc(r.riskLevel||'—')+'</span></div>';
   const timelineHtml=stages.length
     ?'<ol class="stage-timeline">'+stages.map((stage)=>'<li class="stage-row"><span class="stage-name">'+esc(stage.stage)+'</span><strong>'+esc(stage.outcome).toUpperCase()+'</strong> · '+esc(stage.detail)+'</li>').join('')+'</ol>'
     :'<span class="sub">No stage trace included in this event.</span>';
@@ -2378,7 +2430,7 @@ async function refreshMetrics(){
         if(recs.recommendations&&recs.recommendations.length>0){
           overviewRecs.innerHTML=recs.recommendations.slice(0,4).map((r)=>
             '<div style="display:flex;gap:8px;align-items:flex-start;padding:9px 16px;border-bottom:1px solid var(--border);">'+
-              badge(r.type==='INSUFFICIENT_DATA'?'MONITOR':'INFO')+
+              recChip(r.type)+
               '<span style="font-size:11.5px;color:var(--text-primary);line-height:1.45;">'+esc(r.message)+'</span>'+
             '</div>'
           ).join('')+
@@ -2398,10 +2450,10 @@ async function refreshMetrics(){
 function buildRecsHtml(recs){
   if(recs.recommendations&&recs.recommendations.length>0){
     return '<div class="recs-table">'+
-      '<div class="recs-header-row"><div class="recs-header-cell">Type</div><div class="recs-header-cell">Finding</div></div>'+
+      '<div class="recs-header-row"><div class="recs-header-cell">Recommendation</div><div class="recs-header-cell">Suggested action</div></div>'+
       recs.recommendations.map((r)=>
         '<div class="rec-row">'+
-          '<div class="rec-type-cell">'+badge(r.type==='INSUFFICIENT_DATA'?'MONITOR':'INFO')+'</div>'+
+          '<div class="rec-type-cell">'+recChip(r.type)+'</div>'+
           '<div class="rec-finding">'+esc(r.message)+'</div>'+
         '</div>').join('')+
       '</div>';
@@ -2454,11 +2506,21 @@ async function loadStatic(){
         (Array.isArray(svc)?svc.length:'—')+' registered services · Any unlisted pair is blocked'+
       '</td></tr></tbody>';
 
-    // Populate both policy tables (mesh view + controls view)
-    const meshTable=$('policies');
-    if(meshTable)meshTable.innerHTML=policyTableHtml;
+    // P1-5: the full policy table lives ONLY in Controls. Service Map
+    // renders the same payload grouped by source service (topology view).
     const ctrlTable=$('ctrl-policies-table');
     if(ctrlTable)ctrlTable.innerHTML=policyTableHtml;
+    const relBox=$('mesh-rels');
+    if(relBox){
+      const bySrc={};
+      pol.forEach((p)=>{(bySrc[p.source]=bySrc[p.source]||[]).push(p);});
+      relBox.innerHTML=Object.keys(bySrc).sort().map((src)=>
+        '<div class="rel-row"><div class="rel-src">'+esc(src)+'</div><div class="rel-dests">'+
+        bySrc[src].map((p)=>'<span class="rel-hop" title="'+esc(p.id||'')+(p.description?': '+esc(p.description):'')+'">'+esc(p.destination)+
+          '<span class="sub"> '+esc((p.methods||[]).join(','))+'</span>'+
+          (p.effect==='deny'?' <span class="deny-label">deny</span>':'')+'</span>').join('')+
+        '</div></div>').join('');
+    }
 
     // Load simulator scenarios
     const sc=await api('/api/simulator/scenarios');
@@ -2502,7 +2564,7 @@ function renderSim(r){
         '<span style="width:90px;flex-shrink:0;">'+badge(s.decision)+'</span>'+
         '<span class="sim-step-label">'+esc(s.label)+'</span>'+
         '<span class="sim-step-reason">'+esc(s.reason)+'</span>'+
-        (s.riskScore!=null&&s.riskScore>0?'<span class="sim-step-risk '+(s.riskScore>=50?'BLOCK':'MONITOR')+'">Risk '+s.riskScore+'</span>':'')+
+        (s.riskScore!=null&&s.riskScore>0?'<span class="sim-step-risk risk-neutral">Risk '+s.riskScore+'</span>':'')+
       '</div>').join('');
 }
 
@@ -2698,7 +2760,7 @@ function renderFindings(){
       '<span><b class="'+sevClass(f.severity)+'" style="font-size:10.5px;">'+esc(f.severity)+'</b><br><span class="finding-sub">'+esc(f.category).replace(/_/g,' ')+'</span></span>'+
       '<span><span class="finding-main">'+esc(f.reason).replace(/_/g,' ')+'</span><br><span class="finding-sub">'+esc(f.findingId)+' · '+esc(f.status)+'</span></span>'+
       '<span><span class="finding-main">'+esc(f.source||'?')+' → '+esc(f.destination||'?')+'</span><br><span class="finding-sub">seen '+new Date(f.lastSeenAt).toLocaleTimeString()+'</span></span>'+
-      '<span class="finding-nums"><span class="risk-score '+(f.riskScore>=50?'risk-high':'risk-medium')+'">'+esc(f.riskScore)+'</span><span class="sub">conf '+esc(f.confidenceScore)+'</span></span>';
+      '<span class="finding-nums"><span class="risk-score risk-neutral" title="Pipeline risk score (no band applied — severity is shown separately)">'+esc(f.riskScore)+'</span><span class="sub">conf '+esc(f.confidenceScore)+'</span></span>';
     b.addEventListener('click',()=>openFinding(f.findingId,{returnTo:null}));
     wrap.appendChild(b);
   });
@@ -2715,14 +2777,51 @@ async function openFinding(findingId,opts){
   el.innerHTML='<div class="sub">Loading finding…</div>';
   try{
     const res=await fetch('/api/threats/findings/'+encodeURIComponent(findingId),{headers:{...keyHeader()}});
-    if(res.status===404){el.innerHTML='<div class="intel-contract-notice"><strong>Expired:</strong> this finding is no longer active and was not replaced with new data.</div>';return;}
+    if(res.status===404){renderFindingFailed(findingId,true);return;}
     const d=await res.json();
     renderFindingDetail(d);
-  }catch(e){console.error(e);}
+  }catch(e){console.error(e);renderFindingFailed(findingId,false);}
+}
+
+// Shared return path from finding detail (close button and error states).
+function backFromFinding(){
+  const ret=findingReturn;
+  findingReturn=null;
+  if(ret&&ret.kind==='investigation'&&ret.key){
+    openInvestigation(ret.key,{fromFinding:selectedFindingId});
+    activateSubView('intelligence','investigations');syncIntelTabs();
+  }else if(ret&&ret.kind==='paths'){
+    activateSubView('intelligence','paths');syncIntelTabs();
+  }else{
+    selectedFindingId='';$('finding-detail').innerHTML='';renderFindings();
+  }
+}
+
+// P1-3: professional load-failure state. Distinct from "expired" (404):
+// the finding may still exist, the request itself failed. Retry reuses the
+// exact same safe request; Back preserves the previous navigation context.
+function renderFindingFailed(findingId,expired){
+  const el=$('finding-detail');
+  if(expired){
+    el.innerHTML='<div class="intel-empty-state"><h3 class="intel-state-title">Finding no longer active</h3>'+
+      '<p class="intel-state-body">This finding expired from the active correlation window and was not replaced with new data. This is not an error — nothing was deleted by hand.</p>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-secondary btn-sm" id="finding-fail-back" type="button">Back</button></div></div>';
+  }else{
+    el.innerHTML='<div class="intel-empty-state"><h3 class="intel-state-title">Unable to load finding</h3>'+
+      '<p class="intel-state-body">The finding details could not be retrieved. The finding itself may still be active — this failure is in loading, not in the finding. No data has been fabricated or altered.</p>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-primary btn-sm" id="finding-retry" type="button">Retry</button>'+
+      '<button class="btn btn-secondary btn-sm" id="finding-fail-back" type="button">Back</button></div></div>';
+    const retry=$('finding-retry');
+    if(retry)retry.addEventListener('click',()=>{openFinding(findingId);});
+  }
+  const back=$('finding-fail-back');
+  if(back)back.addEventListener('click',()=>{backFromFinding();});
 }
 
 function renderFindingDetail(d){
-  const riskCls=(d.riskScore||0)>=50?'critical':((d.riskScore||0)>0?'elevated':'');
+  // P1-2: the finding DTO carries riskScore but no riskLevel, so the meter
+  // fill stays neutral and the number speaks for itself — no invented band.
+  const riskCls='neutral';
   const conf=(d.confidenceScore!=null)?d.confidenceScore:(d.assessment?.confidence?.score ?? '—');
   const ev=(d.evidence||[]).map((e)=>
     '<div style="padding:7px 0;border-bottom:1px solid var(--border);"><code>'+esc(e.evidenceId)+'</code> '+
@@ -2767,18 +2866,7 @@ function renderFindingDetail(d){
     if(eb)eb.addEventListener('click',()=>inspectDecision(match));
   }
   const close=$('finding-close');
-  if(close)close.addEventListener('click',()=>{
-    const ret=findingReturn;
-    findingReturn=null;
-    if(ret&&ret.kind==='investigation'&&ret.key){
-      openInvestigation(ret.key,{fromFinding:selectedFindingId});
-      activateSubView('intelligence','investigations');syncIntelTabs();
-    }else if(ret&&ret.kind==='paths'){
-      activateSubView('intelligence','paths');syncIntelTabs();
-    }else{
-      selectedFindingId='';$('finding-detail').innerHTML='';renderFindings();
-    }
-  });
+  if(close)close.addEventListener('click',()=>{backFromFinding();});
   const inv=$('finding-open-inv');
   if(inv)inv.addEventListener('click',()=>{openInvestigation(d.correlationKey,{fromFinding:d.findingId});activateSubView('intelligence','investigations');syncIntelTabs();});
 }
@@ -2866,21 +2954,19 @@ async function loadCategories(){
   const el=$('categories-list');
   const meta=$('categories-meta');
   try{
-    const [cats,all]=await Promise.all([
-      fetch('/api/threats/categories',{headers:{...keyHeader()}}).then((r)=>r.json()),
-      fetch('/api/threats/findings?limit=100',{headers:{...keyHeader()}}).then((r)=>r.json()).catch(()=>({findings:[]})),
-    ]);
+    // P1-4: single authoritative fetch. The categories endpoint already
+    // carries finding counts, exposure, top severity and top confidence —
+    // no parallel list fetch, no client-side risk aggregation.
+    const cats=await fetch('/api/threats/categories',{headers:{...keyHeader()}}).then((r)=>r.json());
     const rows=cats.categories||[];
     if(meta)meta.textContent=(cats.totalActiveFindings||0)+' active findings';
     if(!rows.length){
       el.innerHTML='<div class="intel-empty-state"><span class="intel-empty-icon" aria-hidden="true">▦</span><h3 class="intel-state-title">No category data</h3><p class="intel-state-body">Exposure appears here once findings are correlated. Run the Attack Simulator or wait for live traffic — nothing is inferred from risk scores.</p></div>';
       return;
     }
-    const maxRisk={};
-    for(const f of (all.findings||[]))maxRisk[f.category]=Math.max(maxRisk[f.category]||0,f.riskScore||0);
-    el.innerHTML='<div class="table-container"><table><thead><tr><th>Category</th><th>Findings</th><th>Exposure*</th><th>Highest severity</th><th>Highest conf.</th><th>Highest risk (max)</th></tr></thead><tbody>'+
-      rows.map((c)=>'<tr><td><b>'+esc(c.category).replace(/_/g,' ')+'</b></td><td>'+esc(c.findingCount)+'</td><td>'+esc(c.exposureScore)+'</td><td><b class="'+sevClass(c.maxSeverity)+'">'+esc(c.maxSeverity)+'</b></td><td>'+esc(c.maxConfidence)+'</td><td>'+esc(maxRisk[c.category]||0)+'</td></tr>').join('')+
-      '</tbody></table></div><div class="intel-contract-notice"><strong>*Exposure</strong> is explanatory concentration of correlated factor points — it is not summed into pipeline risk, and risk maxima are shown for comparison only.</div>';
+    el.innerHTML='<div class="table-container"><table><thead><tr><th>Category</th><th>Findings</th><th>Exposure*</th><th>Highest severity</th><th>Highest conf.</th></tr></thead><tbody>'+
+      rows.map((c)=>'<tr><td><b>'+esc(c.category).replace(/_/g,' ')+'</b></td><td>'+esc(c.findingCount)+'</td><td>'+esc(c.exposureScore)+'</td><td><b class="'+sevClass(c.maxSeverity)+'">'+esc(c.maxSeverity)+'</b></td><td>'+esc(c.maxConfidence)+'</td></tr>').join('')+
+      '</tbody></table></div><div class="intel-contract-notice"><strong>*Exposure</strong> is explanatory concentration of correlated factor points — it is not summed into pipeline risk. Per-finding risk remains visible in Threat Findings.</div>';
   }catch(e){console.error(e);}
 }
 
@@ -2930,6 +3016,7 @@ function onThreatFinding(summary){
   }
   refreshThreatBadge();
   loadThreatStrip();
+  renderAttentionQueue();
   const panel=document.querySelector('[data-view-panel="intelligence"]');
   if(!panel||!panel.classList.contains('active'))return;
   const sub=activeSubViews.intelligence;

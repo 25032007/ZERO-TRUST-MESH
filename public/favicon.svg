@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1C2B23"/>
+      <stop offset="100%" stop-color="#0E1612"/>
+    </linearGradient>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C6924B"/>
+      <stop offset="100%" stop-color="#E5B269"/>
+    </linearGradient>
+    <linearGradient id="meshGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#527A5B"/>
+      <stop offset="100%" stop-color="#8BB194"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background Circle -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)"/>
+  
+  <!-- Outer Mesh Network Connections -->
+  <g stroke="url(#meshGrad)" stroke-width="4" opacity="0.4">
+    <line x1="256" y1="90" x2="130" y2="200" />
+    <line x1="256" y1="90" x2="382" y2="200" />
+    <line x1="130" y1="200" x2="130" y2="340" />
+    <line x1="382" y1="200" x2="382" y2="340" />
+    <line x1="130" y1="340" x2="256" y2="430" />
+    <line x1="382" y1="340" x2="256" y2="430" />
+    <line x1="130" y1="200" x2="382" y2="340" />
+    <line x1="382" y1="200" x2="130" y2="340" />
+  </g>
+
+  <!-- Mesh Nodes -->
+  <circle cx="256" cy="90" r="10" fill="#8BB194" />
+  <circle cx="130" cy="200" r="10" fill="#8BB194" />
+  <circle cx="382" cy="200" r="10" fill="#8BB194" />
+  <circle cx="130" cy="340" r="10" fill="#8BB194" />
+  <circle cx="382" cy="340" r="10" fill="#8BB194" />
+  <circle cx="256" cy="430" r="10" fill="#8BB194" />
+
+  <!-- Central Shield -->
+  <path d="M256 130 L350 185 V275 C350 345 256 395 256 395 C256 395 162 345 162 275 V185 Z" 
+        fill="#14211B" stroke="url(#shieldGrad)" stroke-width="10" filter="url(#glow)"/>
+
+  <!-- Keyhole / Cryptographic Node Icon -->
+  <circle cx="256" cy="235" r="28" fill="url(#shieldGrad)" />
+  <path d="M242 245 L270 245 L280 310 L232 310 Z" fill="url(#shieldGrad)" />
+  <circle cx="256" cy="235" r="12" fill="#14211B" />
+</svg>

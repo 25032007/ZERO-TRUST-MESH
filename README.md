@@ -1,10 +1,6 @@
 # Zero-Trust Mesh
 
 <p align="center">
-  <img src="public/assets/hero_banner.jpg" alt="Zero-Trust Mesh Hero Banner" width="100%" />
-</p>
-
-<p align="center">
   <a href="https://zero-trust-mesh.onrender.com"><img src="https://img.shields.io/badge/Live%20Demo-Render-00E599?style=for-the-badge&logo=render&logoColor=black" alt="Live Demo on Render" /></a>
   <img src="https://img.shields.io/badge/Node.js-%3E%3D20-339933?style=for-the-badge&logo=node.js&logoColor=white" alt="Node >= 20" />
   <img src="https://img.shields.io/badge/TypeScript-5.7-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
@@ -14,17 +10,17 @@
 
 > **An explainable, real-time zero-trust enforcement proxy and threat-intelligence platform for service-to-service communication.**
 
-🌐 **Live Deployed Application**: [https://zero-trust-mesh.onrender.com](https://zero-trust-mesh.onrender.com)
+**Live Deployed Application**: [https://zero-trust-mesh.onrender.com](https://zero-trust-mesh.onrender.com)
 
 ---
 
-## 📸 Real SOC Operations & Live Attack Simulation Showcase
+## Real SOC Operations & Live Attack Simulation Showcase
 
 Zero-Trust Mesh includes an operational, zero-dependency **Security Operations Console** that streams real-time proxy decisions and correlated threat findings via WebSockets. 
 
 Below are **live application screenshots** captured after executing the 13-scenario real-fire attack simulator against the pipeline:
 
-### 1. ⚔️ Live 13-Scenario Attack Simulator (`13/13 Passed`)
+### 1. Live 13-Scenario Attack Simulator (`13/13 Passed`)
 <p align="center">
   <img src="public/assets/simulator_passed.png" alt="Attack Simulator Execution Results 13 of 13 Passed" width="100%" />
 </p>
@@ -33,7 +29,7 @@ Below are **live application screenshots** captured after executing the 13-scena
 
 ---
 
-### 2. 📊 Command Overview & Posture Metrics
+### 2. Command Overview & Posture Metrics
 <p align="center">
   <img src="public/assets/dashboard_overview.png" alt="Overview Posture Metrics and Attention Queue" width="100%" />
 </p>
@@ -42,7 +38,7 @@ Below are **live application screenshots** captured after executing the 13-scena
 
 ---
 
-### 3. ⚡ Live Decision Event Stream (`/ws`)
+### 3. Live Decision Event Stream (`/ws`)
 <p align="center">
   <img src="public/assets/live_operations.png" alt="Live Operations Event Stream" width="100%" />
 </p>
@@ -51,7 +47,7 @@ Below are **live application screenshots** captured after executing the 13-scena
 
 ---
 
-### 4. 🛡️ Correlated Threat Findings
+### 4. Correlated Threat Findings
 <p align="center">
   <img src="public/assets/threat_findings.png" alt="Correlated Threat Findings Panel" width="100%" />
 </p>
@@ -60,7 +56,7 @@ Below are **live application screenshots** captured after executing the 13-scena
 
 ---
 
-### 5. 🕸️ Reconstructed Lateral Movement Attack Paths
+### 5. Reconstructed Lateral Movement Attack Paths
 <p align="center">
   <img src="public/assets/attack_paths.png" alt="Reconstructed Attack Paths" width="100%" />
 </p>
@@ -69,7 +65,7 @@ Below are **live application screenshots** captured after executing the 13-scena
 
 ---
 
-## 🎯 Why This Project Exists
+## Why This Project Exists
 
 Traditional perimeter security assumes that internal service-to-service traffic can be trusted once inside a private network. Modern microservices break this assumption:
 - **Header-only trust is dangerous**: A `X-Caller-ID` header can be forged easily.
@@ -81,7 +77,7 @@ Traditional perimeter security assumes that internal service-to-service traffic 
 
 ---
 
-## 🏗️ System Architecture & Architectural Planes
+## System Architecture & Architectural Planes
 
 Zero-Trust Mesh is built around a clean separation of three operational planes: **Enforcement**, **Threat Intelligence**, and **Operations**.
 
@@ -125,7 +121,7 @@ graph TD
 
 ---
 
-## 🔒 8-Stage Security Pipeline
+## 8-Stage Security Pipeline
 
 Every request traversing `/api/proxy/*` passes through the 8-stage pipeline (`src/pipeline/pipeline.ts`):
 
@@ -161,7 +157,7 @@ Stage 8: Decision Engine ────────────► Score <30: ALLO
 
 ---
 
-## 📐 Risk Model & Verdict Thresholds
+## Risk Model & Verdict Thresholds
 
 ```text
 finalRisk = min(100, sum(unique risk-factor contributions))
@@ -187,25 +183,25 @@ Hard security failures bypass soft numeric scoring and terminate immediately wit
 
 ---
 
-## ⚡ Key Features & Security Invariants
+## Key Features & Security Invariants
 
-### 🛡️ Cryptographic Workload Identity
+### Cryptographic Workload Identity
 - **Algorithm Pinning**: Strictly pinned to **Ed25519** (`EdDSA`). Tokens specifying `alg: none` or `HS256` are rejected immediately before key lookup.
 - **Public Key Proxy**: The proxy stores public keys only (`src/identity/registry.ts`). No proxy endpoint can mint tokens or access private keys.
 - **Replay Protection**: Every token carries a single-use JWT ID (`jti`). Replay verification runs **after** signature verification to prevent replay-DoSun-signed attacks.
 
-### 📜 Default-Deny Policy-as-Code
+### Default-Deny Policy-as-Code
 - **Fail-Closed**: Unlisted service pairs are rejected by default (`policies/default.json`).
 - **Priority & Dry-Run**: Explicit priority evaluation, allow/deny effects, method/path rules, time windows, and dry-run mode for safe policy rollouts.
 - **Atomic Hot Reload**: Updates on disk are validated against a strict JSON Schema before applying. Invalid edits are rejected, preserving the active policy set.
 
-### 🧠 Additive Threat Intelligence & Attack Paths
+### Additive Threat Intelligence & Attack Paths
 - **8 Threat Taxonomies**: Classified into `IDENTITY_COMPROMISE`, `AUTHENTICATION_TOKEN_ABUSE`, `AUTHORIZATION_POLICY_VIOLATION`, `BEHAVIORAL_ANOMALY`, `LATERAL_MOVEMENT`, `RECONNAISSANCE_PROBING`, `REQUEST_PAYLOAD_ABUSE`, and `SERVICE_GRAPH_ANOMALY`.
 - **Trace Attack Paths**: Attack paths are reconstructed strictly from observed trace evidence—never inferred or hallucinated.
 
 ---
 
-## 🔌 API Overview
+## API Overview
 
 ### Core Proxy & Liveness
 
@@ -234,7 +230,7 @@ Hard security failures bypass soft numeric scoring and terminate immediately wit
 
 ---
 
-## 🧪 Testing & Validation Performance
+## Testing & Validation Performance
 
 The repository includes a comprehensive automated test suite and evaluation harness:
 
@@ -245,7 +241,7 @@ The repository includes a comprehensive automated test suite and evaluation harn
 
 ---
 
-## 🚀 Quick Start & Local Setup
+## Quick Start & Local Setup
 
 ### Prerequisites
 - **Node.js**: $\ge 20.0.0$
@@ -273,7 +269,7 @@ npm run demo
 
 ---
 
-## ⚙️ Deployment (Render)
+## Deployment (Render)
 
 This repository is optimized for one-click deployment on **Render**:
 
@@ -291,7 +287,7 @@ This repository is optimized for one-click deployment on **Render**:
 
 ---
 
-## 📜 Known Boundaries & License
+## Known Boundaries & License
 
 - **In-Memory Store**: Token IDs, rate limiters, and threat correlations live in-process (a `JtiStore` interface exists for future Redis scaling).
 - **Advisory Recommendations**: Least-privilege policy suggestions require human approval before applying.

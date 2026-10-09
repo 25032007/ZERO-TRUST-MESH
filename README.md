@@ -81,107 +81,167 @@ Traditional perimeter security assumes that internal service-to-service traffic 
 
 ---
 
-## ⚡ Key Features
+## 🏗️ System Architecture & Architectural Planes
 
-### 🛡️ 1. Zero-Trust Enforcement Pipeline
-- **Ed25519 Workload Identity**: Cryptographic JWT validation with pinned Ed25519 signature algorithm, audience validation, lifetime limits, and single-use JTI replay protection.
-- **Anti-Spoofing & Service Authentication**: Strictly verifies caller identity against public keys — never trusts headers.
-- **Default-Deny Policy Engine**: Strict priority rules, allow/deny effects, path/method restrictions, time windows, and atomic hot-reloading (`policies/default.json`).
-- **Explainable Risk Engine**: Exact-sum risk scoring (`min(100, Σ factor points)`). Every risk point is attributed to named factors.
-- **Lateral Movement Detection**: Tracks request traces across services. Detects $\ge 3$ distinct service hops within 1 second and immediately isolates the calling service in quarantine.
-- **Quarantine Controls**: Automated isolation and auto-release lifecycle for compromised services.
+Zero-Trust Mesh is built around a clean separation of three operational planes: **Enforcement**, **Threat Intelligence**, and **Operations**.
 
-### 🧠 2. Additive Threat Intelligence
-- **Signal Normalization**: Converts finalized enforcement verdicts into typed security signals (`IDENTITY_COMPROMISE`, `LATERAL_MOVEMENT`, `BEHAVIORAL_ANOMALY`).
-- **Bounded Correlation**: Correlates evidence into active findings without raw secrets or payload content.
-- **Attack Path Reconstruction**: Reconstructs observed multi-hop attack paths directly from trace evidence.
-- **Least-Privilege Recommender**: Analyzes real request traffic and recommends policy tightening (`REMOVE_UNUSED_POLICY`, `NARROW_METHODS`, `NARROW_PATHS`).
+```mermaid
+graph TD
+    Client["Client Workload"] -->|"1. Request + Ed25519 JWT"| Proxy["Zero-Trust Proxy Entry Point (/api/proxy)"]
+    
+    subgraph EnforcementPlane["ENFORCEMENT PLANE (Authoritative & Synchronous)"]
+        Proxy --> RL["1. IP Rate Limiter"]
+        RL -->|"Pass"| Auth["2. Workload Authentication (Ed25519 & Single-Use JTI)"]
+        Auth -->|"Valid"| Quar["3. Quarantine Check"]
+        Quar -->|"Not Quarantined"| Pol["4. Default-Deny Policy Engine"]
+        Pol -->|"Allowed"| Anom["5. Payload & Behavioral Anomaly Check"]
+        Anom --> Lat["6. Lateral Movement Detector"]
+        Lat --> Risk["7. Explainable Risk Engine"]
+        Risk --> Verdict["8. Verdict Decision (ALLOW / MONITOR / STEP_UP / BLOCK)"]
+    end
 
-### 📊 3. Live Observability & Audit
-- **WebSocket Decision Stream**: Real-time event streaming (`/ws`) delivering `decision` and `threat.finding.v1` events to the dashboard.
-- **Tamper-Evident Audit Trail**: Hash-chained immutable log structure with instant cryptographic chain verification (`/api/audit/verify`).
-- **Attack Simulator**: Built-in 13-scenario live-fire attack panel testing forged signatures, replay attacks, policy bypasses, payload bombs, and lateral traversal.
+    Verdict -->|"Immutable Record"| Audit["SHA-256 Hash-Chained Audit Log"]
+    Verdict -->|"Finalized Verdict"| IntelPlane
+
+    subgraph IntelPlane["THREAT INTELLIGENCE PLANE (Analytical & Additive)"]
+        Norm["Signal Normalization"] --> EvGen["Evidence Generation (Secrets Stripped)"]
+        EvGen --> Corr["Bounded Threat Correlator"]
+        Corr --> Findings["Active Threat Findings & Attack Path Reconstruction"]
+    end
+
+    subgraph OperationsPlane["OPERATIONS PLANE (Presentation & Monitoring)"]
+        Verdict -->|"WebSocket Stream (/ws)"| Dashboard["SOC Operations Console (public/index.html)"]
+        Findings -->|" threat.finding.v1 " | Dashboard
+    end
+```
+
+### The Three Architectural Planes
+
+| Plane | Responsibility | Key Components | Guarantees |
+| :--- | :--- | :--- | :--- |
+| **Enforcement Plane** | Authoritative: decides verdicts, scores risk, enforces blocks & quarantine | `SecurityPipeline`, `RiskEngine`, `PolicyEngine`, `JtiStore` | Synchronous, deterministic, fail-closed |
+| **Threat Intelligence Plane** | Analytical: normalizes signals, correlates findings, reconstructs attack paths | `ThreatIntelligence`, `ThreatCorrelator`, `EvidenceGenerator` | Additive only — never overrides an enforcement verdict |
+| **Operations Plane** | Presentation: live streaming, posture metrics, investigation triage | `public/index.html`, REST API, WebSocket Server (`/ws`) | Zero security calculations on client |
 
 ---
 
-## 🏗️ Architecture & Security Decision Flow
+## 🔒 8-Stage Security Pipeline
+
+Every request traversing `/api/proxy/*` passes through the 8-stage pipeline (`src/pipeline/pipeline.ts`):
 
 ```text
 Client Request
       │
       ▼
-1. IP Rate Limiting ────────► (Exceeded? BLOCK)
+Stage 1: IP Rate Limiting ────────────► (Quota exceeded? BLOCK)
       │
       ▼
-2. Workload Authentication ──► (Bad JWT / Replay / Spoof? BLOCK)
+Stage 2: Workload Authentication ────► (Forged Ed25519 / Replayed JTI / Spoofed Header? BLOCK)
       │
       ▼
-3. Quarantine Check ─────────► (In Quarantine? BLOCK)
+Stage 3: Quarantine Check ───────────► (Service isolated in quarantine? BLOCK)
       │
       ▼
-4. Default-Deny Policy ─────► (No matching rule? BLOCK)
+Stage 4: Default-Deny Policy ────────► (No explicit matching allow rule? BLOCK)
       │
       ▼
-5. Payload & Anomaly Check ──► (Anomalous size/depth? Add Risk)
+Stage 5: Payload Anomaly Check ──────► (Anomalous size/depth/z-score? Add Risk Points)
       │
       ▼
-6. Lateral Movement Check ───► (3+ hops in 1s? BLOCK + Quarantine)
+Stage 6: Lateral Movement Check ─────► (≥3 hops in 1s trace? BLOCK + Quarantine calling service)
       │
       ▼
-7. Risk Engine Scoring ──────► (Score >= 80? BLOCK; 60? STEP_UP; 30? MONITOR)
+Stage 7: Risk Engine Scoring ────────► (Risk score = Σ unique factor points, max 100)
       │
       ▼
-8. Final Decision & Audit Log Hash Chain Update
-      │
-      ▼
-9. Threat Intelligence Correlation & WebSocket Push to SOC Console
+Stage 8: Decision Engine ────────────► Score <30: ALLOW | 30-59: MONITOR | 60-79: STEP_UP | ≥80: BLOCK
 ```
+
+> **Hard Failures vs Soft Factors**: Hard security failures (bad signature, token replay, unlisted policy, active quarantine) terminate immediately with a fixed severity. Soft signals (off-hours, new pair, payload size deviation) accumulate points into a 0–100 score.
 
 ---
 
-## 📐 Risk & Verdict Model
+## 📐 Risk Model & Verdict Thresholds
 
 ```text
 finalRisk = min(100, sum(unique risk-factor contributions))
 ```
 
-| Risk Score | Verdict | Enforcement Action |
-| :--- | :--- | :--- |
-| `< 30` | **ALLOW** | Request permitted through mesh proxy |
-| `30 – 59` | **MONITOR** | Request allowed but flagged in live SOC dashboard |
-| `60 – 79` | **STEP_UP_AUTH** | Requires TOTP verification code |
-| `≥ 80` | **BLOCK** | Request rejected & caller placed under investigation |
+The risk engine uses a deterministic factor ledger to eliminate double-counting:
 
-> **Hard Failures**: Cryptographic failures (forged signature, replayed token, invalid algorithm) terminate immediately with fixed severities (e.g., Signature Failure = 95, Token Replay = 90).
+| Risk Score Range | Decision Verdict | Proxy Action |
+| :--- | :--- | :--- |
+| **`< 30`** | **ALLOW** | Request is passed to the destination service |
+| **`30 – 59`** | **MONITOR** | Request is allowed, but flagged in live SOC dashboard feed |
+| **`60 – 79`** | **STEP_UP_AUTH** | Request is held pending single-use TOTP verification |
+| **`≥ 80`** | **BLOCK** | Request is blocked and caller is isolated for investigation |
+
+### Hard Failure Severities
+
+Hard security failures bypass soft numeric scoring and terminate immediately with fixed severities:
+- `SERVICE_QUARANTINED`: **100**
+- `INVALID_SIGNATURE` / `ALG_NOT_ALLOWED`: **95**
+- `TOKEN_REPLAY` / `IDENTITY_MISMATCH` / `LATERAL_MOVEMENT`: **90**
+- `MISSING_TOKEN`: **85**
+- `NO_POLICY` / `UNKNOWN_SERVICE`: **70**
+
+---
+
+## ⚡ Key Features & Security Invariants
+
+### 🛡️ Cryptographic Workload Identity
+- **Algorithm Pinning**: Strictly pinned to **Ed25519** (`EdDSA`). Tokens specifying `alg: none` or `HS256` are rejected immediately before key lookup.
+- **Public Key Proxy**: The proxy stores public keys only (`src/identity/registry.ts`). No proxy endpoint can mint tokens or access private keys.
+- **Replay Protection**: Every token carries a single-use JWT ID (`jti`). Replay verification runs **after** signature verification to prevent replay-DoSun-signed attacks.
+
+### 📜 Default-Deny Policy-as-Code
+- **Fail-Closed**: Unlisted service pairs are rejected by default (`policies/default.json`).
+- **Priority & Dry-Run**: Explicit priority evaluation, allow/deny effects, method/path rules, time windows, and dry-run mode for safe policy rollouts.
+- **Atomic Hot Reload**: Updates on disk are validated against a strict JSON Schema before applying. Invalid edits are rejected, preserving the active policy set.
+
+### 🧠 Additive Threat Intelligence & Attack Paths
+- **8 Threat Taxonomies**: Classified into `IDENTITY_COMPROMISE`, `AUTHENTICATION_TOKEN_ABUSE`, `AUTHORIZATION_POLICY_VIOLATION`, `BEHAVIORAL_ANOMALY`, `LATERAL_MOVEMENT`, `RECONNAISSANCE_PROBING`, `REQUEST_PAYLOAD_ABUSE`, and `SERVICE_GRAPH_ANOMALY`.
+- **Trace Attack Paths**: Attack paths are reconstructed strictly from observed trace evidence—never inferred or hallucinated.
 
 ---
 
 ## 🔌 API Overview
 
-### Core Proxy & Health
+### Core Proxy & Liveness
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `ANY` | `/api/proxy/*` | Enforced Zero-Trust Proxy entry point (Requires Bearer token) |
-| `GET` | `/healthz` | Service liveness & uptime check |
+| `ANY` | `/api/proxy/*` | Enforced Zero-Trust Proxy entry point (Requires `Authorization: Bearer <JWT>` + `X-Destination-Service`) |
+| `GET` | `/healthz` | Liveness and uptime check |
 
 ### Threat Intelligence & Observability
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `GET` | `/api/threats/findings` | Active correlated threat findings |
-| `GET` | `/api/threats/investigations/:key` | Grouped evidence & attack timelines |
+| `GET` | `/api/threats/findings` | Active correlated threat findings (bounded, paginated) |
+| `GET` | `/api/threats/investigations/:key` | Grouped evidence and timeline by correlation key |
 | `GET` | `/api/threats/attack-paths` | Reconstructed multi-hop lateral attack paths |
-| `GET` | `/api/metrics` | Real-time decision metrics & pipeline latency |
-| `GET` | `/api/audit/verify` | Verify cryptographic hash chain of audit log |
+| `GET` | `/api/metrics` | Real-time decision distribution, throughput, latency percentiles |
+| `GET` | `/api/audit/verify` | Verify SHA-256 cryptographic hash chain of audit records |
 
 ### Administrative Controls (Requires `X-Admin-Key`)
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `POST` | `/admin/policies/reload` | Trigger atomic hot-reload of policy rules |
+| `POST` | `/admin/policies/reload` | Trigger atomic hot-reload of policy file |
 | `POST` | `/admin/quarantine/:id/release` | Release isolated service from quarantine |
-| `POST` | `/admin/services/rotate-key` | Perform key rotation for workload identities |
+| `POST` | `/admin/services/rotate-key` | Perform workload identity key rotation |
+
+---
+
+## 🧪 Testing & Validation Performance
+
+The repository includes a comprehensive automated test suite and evaluation harness:
+
+- **Unit & Integration Suite**: **227 passing tests** across 27 files (`npm test`).
+- **TypeScript Typecheck**: 100% clean (`npm run typecheck`).
+- **13-Scenario Live Attack Simulator**: 100% pass rate (`npm run demo`).
+- **Load Test Sweep** (`docs/LOADTEST.md`): 3,107 rps at 50 connections; server-side pipeline latency p50 4.35 ms, p99 63.58 ms.
 
 ---
 
@@ -201,26 +261,13 @@ cd ZERO-TRUST-MESH
 # 2. Install dependencies
 npm ci
 
-# 3. Start development server
+# 3. Start development server (console at http://localhost:4000)
 npm run dev
-```
 
-Open your browser at `http://localhost:4000` to view the live SOC Console.
-
----
-
-## 🧪 Testing & Validation
-
-Zero-Trust Mesh includes an extensive test suite verifying security invariants, cryptographic checks, and attack scenarios:
-
-```bash
-# Run 227 passing unit & integration tests
+# 4. Run full test suite
 npm test
 
-# Run TypeScript type verification
-npm run typecheck
-
-# Run 13 live attack simulation scenarios
+# 5. Run live attack simulation
 npm run demo
 ```
 
@@ -232,8 +279,8 @@ This repository is optimized for one-click deployment on **Render**:
 
 1. Create a new **Web Service** on [Render](https://dashboard.render.com).
 2. Connect your GitHub repository.
-3. Configure the settings:
-   - **Environment**: `Node`
+3. Configure settings:
+   - **Environment**: `Node` (or `Docker` using [`Dockerfile`](file:///d:/ZERO-TRUST-MESH/Dockerfile))
    - **Build Command**: `npm ci && npm run build`
    - **Start Command**: `npm start`
 4. Set Environment Variables:
@@ -244,11 +291,10 @@ This repository is optimized for one-click deployment on **Render**:
 
 ---
 
-## 📜 Security Invariants & License
+## 📜 Known Boundaries & License
 
-1. **Public Key Proxy**: The proxy stores public keys only. It never mints private keys.
-2. **Algorithm Pinning**: Algorithm is strictly pinned to Ed25519.
-3. **Default Deny**: Unmatched traffic is blocked by default.
-4. **Tamper-Evident Audit**: Every security event is cryptographically chained.
+- **In-Memory Store**: Token IDs, rate limiters, and threat correlations live in-process (a `JtiStore` interface exists for future Redis scaling).
+- **Advisory Recommendations**: Least-privilege policy suggestions require human approval before applying.
+- **Rule-Based Engine**: Detection is rule-based and statistical (EWMA / z-score), not AI/ML.
 
 Distributed under the [MIT License](LICENSE).
